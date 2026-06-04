@@ -10,6 +10,22 @@ import {
   tabPanel,
 } from "../motion";
 import { DashboardSkeleton } from "./skeleton";
+import {
+  ACCOUNT_ICONS,
+  Activity,
+  Award,
+  Cat,
+  CpIcon,
+  PiggyBank,
+  Receipt,
+  Star,
+  TAB_ICONS,
+  Tag,
+  TrendingDown,
+  TrendingUp,
+  TX_ICONS,
+  Wallet,
+} from "./icons";
 
 /* ─── Types ───────────────────────────────────────────────────── */
 interface Account { name: string; balance: number; type: string; isDefault: boolean }
@@ -42,6 +58,10 @@ const TYPE_COLOR: Record<string, string> = {
 };
 const TYPE_SIGN: Record<string, string> = {
   INCOME: "+", EXPENSE: "-", TRANSFER: "", DEBT_LEND: "-", DEBT_REPAY: "+",
+};
+const TYPE_BG: Record<string, string> = {
+  INCOME: C.incomeBg, EXPENSE: C.expenseBg, TRANSFER: C.transferBg,
+  DEBT_LEND: C.accentBg, DEBT_REPAY: C.incomeBg,
 };
 
 function fmt(n: number) { return `฿${Math.abs(n).toLocaleString("th-TH")}` }
@@ -180,9 +200,8 @@ export default function Dashboard() {
         <motion.div
           animate={reduceMotion ? {} : { y: [0, -6, 0] }}
           transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-          style={{ fontSize: 32 }}
         >
-          🐾
+          <CpIcon icon={Cat} size={40} color={C.sub} strokeWidth={1.5} />
         </motion.div>
         <div style={{ marginTop: 8, color: C.sub }}>{error}</div>
       </motion.div>
@@ -209,13 +228,19 @@ export default function Dashboard() {
       >
         <div className="cp-header-inner">
           <div>
-            <div className="cp-header-balance">ยอดรวมทุกกระเป๋า</div>
+            <div className="cp-header-balance cp-header-label">
+              <CpIcon icon={Wallet} size={12} color="rgba(255,255,255,0.5)" />
+              ยอดรวมทุกกระเป๋า
+            </div>
             <div className="cp-header-amount">
               {data.totalBalance < 0 ? "-" : ""}฿{Math.abs(data.totalBalance).toLocaleString("th-TH")}
             </div>
           </div>
           <div>
-            <div className="cp-header-grade-label">เกรดสัปดาห์นี้</div>
+            <div className="cp-header-grade-label cp-header-label" style={{ justifyContent: "flex-end" }}>
+              <CpIcon icon={Award} size={12} color="rgba(255,255,255,0.5)" />
+              เกรดสัปดาห์นี้
+            </div>
             <div className="cp-header-grade">{s.grade}</div>
           </div>
         </div>
@@ -232,7 +257,14 @@ export default function Dashboard() {
               whileTap={reduceMotion ? undefined : { scale: 0.97 }}
               transition={t(0.12)}
             >
-              {TAB_LABELS[tabKey]}
+              <span className="cp-tab-inner">
+                <CpIcon
+                  icon={TAB_ICONS[tabKey]}
+                  size={16}
+                  color={tab === tabKey ? C.text : C.sub}
+                />
+                {TAB_LABELS[tabKey]}
+              </span>
             </motion.button>
           ))}
         </nav>
@@ -257,13 +289,16 @@ export default function Dashboard() {
                     animate="show"
                   >
                     {[
-                      { label: "รายรับสัปดาห์นี้", value: `+${fmt(s.totalIncome)}`, color: C.income },
-                      { label: "รายจ่ายสัปดาห์นี้", value: `-${fmt(s.totalExpense)}`, color: C.expense },
-                      { label: "อัตราออม", value: `${s.savingsRate}%`, color: C.transfer },
-                      { label: "หมวดเยอะสุด", value: s.topCategory, color: C.accent },
+                      { label: "รายรับสัปดาห์นี้", value: `+${fmt(s.totalIncome)}`, color: C.income, icon: TrendingUp },
+                      { label: "รายจ่ายสัปดาห์นี้", value: `-${fmt(s.totalExpense)}`, color: C.expense, icon: TrendingDown },
+                      { label: "อัตราออม", value: `${s.savingsRate}%`, color: C.transfer, icon: PiggyBank },
+                      { label: "หมวดเยอะสุด", value: s.topCategory, color: C.accent, icon: Tag },
                     ].map((item) => (
                       <motion.div key={item.label} className="cp-stat" variants={staggerItem} transition={t(0.2)}>
-                        <div className="cp-stat-label">{item.label}</div>
+                        <div className="cp-stat-label">
+                          <CpIcon icon={item.icon} size={14} color={C.sub} />
+                          <span className="cp-stat-label-text">{item.label}</span>
+                        </div>
                         <div className="cp-stat-value" style={{ color: item.color }}>{item.value}</div>
                       </motion.div>
                     ))}
@@ -276,21 +311,37 @@ export default function Dashboard() {
                     animate="show"
                   >
                     <motion.div className="cp-card" variants={staggerItem} transition={t(0.25)}>
-                      <div className="cp-card-header">สมดุลการเงิน 6 มิติ</div>
+                      <div className="cp-card-header">
+                        <CpIcon icon={Activity} size={16} color={C.income} />
+                        สมดุลการเงิน 6 มิติ
+                      </div>
                       <div className="cp-chart-wrap">
                         <canvas ref={chartRef} />
                       </div>
                     </motion.div>
 
                     <motion.div className="cp-card" variants={staggerItem} transition={t(0.25)}>
-                      <div className="cp-card-header">กระเป๋าเงิน</div>
+                      <div className="cp-card-header">
+                        <CpIcon icon={Wallet} size={16} color={C.transfer} />
+                        กระเป๋าเงิน
+                      </div>
                       {data.accounts.map((a) => {
                         const color = a.type === "WALLET" ? C.income : a.type === "SAVINGS" ? C.transfer : C.accent;
+                        const bg = a.type === "WALLET" ? C.incomeBg : a.type === "SAVINGS" ? C.transferBg : C.accentBg;
+                        const AccIcon = ACCOUNT_ICONS[a.type] ?? Wallet;
                         return (
                           <div key={a.name} className="cp-row">
-                            <div>
-                              <div style={{ fontSize: 13, fontWeight: 500 }}>{a.name}{a.isDefault ? " ⭐" : ""}</div>
-                              <div style={{ fontSize: 11, color: C.sub }}>{a.type}</div>
+                            <div className="cp-row-body">
+                              <div className="cp-icon-badge" style={{ background: bg }}>
+                                <CpIcon icon={AccIcon} size={18} color={color} />
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                                  {a.name}
+                                  {a.isDefault && <CpIcon icon={Star} size={12} color={C.accent} strokeWidth={2} />}
+                                </div>
+                                <div style={{ fontSize: 11, color: C.sub }}>{a.type}</div>
+                              </div>
                             </div>
                             <div style={{ fontSize: 15, fontWeight: 600, color }}>
                               {Number(a.balance) < 0 ? "-" : ""}฿{Math.abs(Number(a.balance)).toLocaleString("th-TH")}
@@ -310,21 +361,38 @@ export default function Dashboard() {
                   initial="hidden"
                   animate="show"
                 >
-                  <div className="cp-card-header">รายการล่าสุด</div>
-                  {data.transactions.length === 0 && <div className="cp-empty">ยังไม่มีรายการงับ 🐾</div>}
-                  {data.transactions.map((tx, i) => (
+                  <div className="cp-card-header">
+                    <CpIcon icon={TAB_ICONS.history} size={16} color={C.text} />
+                    รายการล่าสุด
+                  </div>
+                  {data.transactions.length === 0 && (
+                    <div className="cp-empty">
+                      <CpIcon icon={Cat} size={28} color={C.sub} strokeWidth={1.5} />
+                      <span className="cp-empty-text">ยังไม่มีรายการงับ</span>
+                    </div>
+                  )}
+                  {data.transactions.map((tx, i) => {
+                    const TxIcon = TX_ICONS[tx.type] ?? Receipt;
+                    const txColor = TYPE_COLOR[tx.type] ?? C.text;
+                    return (
                     <motion.div key={i} className="cp-row" variants={staggerItem} transition={t(0.18)}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {tx.note || tx.category}
+                      <div className="cp-row-body">
+                        <div className="cp-icon-badge" style={{ background: TYPE_BG[tx.type] ?? C.base }}>
+                          <CpIcon icon={TxIcon} size={18} color={txColor} />
                         </div>
-                        <div style={{ fontSize: 11, color: C.sub }}>{tx.category} · {tx.accountName} · {fmtDate(tx.recordedAt)}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {tx.note || tx.category}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.sub }}>{tx.category} · {tx.accountName} · {fmtDate(tx.recordedAt)}</div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: TYPE_COLOR[tx.type] ?? C.text, flexShrink: 0, marginLeft: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: txColor, flexShrink: 0 }}>
                         {TYPE_SIGN[tx.type] ?? ""}฿{tx.amount.toLocaleString("th-TH")}
                       </div>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </motion.div>
               )}
 
@@ -335,10 +403,19 @@ export default function Dashboard() {
                   initial="hidden"
                   animate="show"
                 >
-                  <div className="cp-card-header">หนี้สิน</div>
-                  {data.debts.length === 0 && <div className="cp-empty">ไม่มีหนี้ค้างงับ 🐾</div>}
+                  <div className="cp-card-header">
+                    <CpIcon icon={TAB_ICONS.debts} size={16} color={C.text} />
+                    หนี้สิน
+                  </div>
+                  {data.debts.length === 0 && (
+                    <div className="cp-empty">
+                      <CpIcon icon={Cat} size={28} color={C.sub} strokeWidth={1.5} />
+                      <span className="cp-empty-text">ไม่มีหนี้ค้างงับ</span>
+                    </div>
+                  )}
                   {data.debts.map((d, i) => {
                     const isLend = d.direction === "WE_LENT";
+                    const DebtIcon = isLend ? TX_ICONS.DEBT_REPAY : TX_ICONS.EXPENSE;
                     return (
                       <motion.div
                         key={i}
@@ -347,10 +424,15 @@ export default function Dashboard() {
                         variants={staggerItem}
                         transition={t(0.18)}
                       >
-                        <div>
+                        <div className="cp-row-body">
+                          <div className="cp-icon-badge" style={{ background: isLend ? C.incomeBg : C.expenseBg, border: `1px solid ${isLend ? C.income : C.expense}22` }}>
+                            <CpIcon icon={DebtIcon} size={18} color={isLend ? C.income : C.expense} />
+                          </div>
+                          <div>
                           <div style={{ fontSize: 13, fontWeight: 500 }}>{d.personName}</div>
                           <div style={{ fontSize: 11, color: isLend ? C.income : C.expense }}>
                             {isLend ? "เราให้ยืม" : "เราเป็นหนี้"} · {d.daysAgo} วันที่แล้ว
+                          </div>
                           </div>
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 600, color: isLend ? C.income : C.expense }}>
@@ -369,8 +451,16 @@ export default function Dashboard() {
                   initial="hidden"
                   animate="show"
                 >
-                  <div className="cp-card-header">รอบบิลประจำ</div>
-                  {data.subscriptions.length === 0 && <div className="cp-empty">ยังไม่มีบิลงับ 🐾</div>}
+                  <div className="cp-card-header">
+                    <CpIcon icon={TAB_ICONS.bills} size={16} color={C.text} />
+                    รอบบิลประจำ
+                  </div>
+                  {data.subscriptions.length === 0 && (
+                    <div className="cp-empty">
+                      <CpIcon icon={Cat} size={28} color={C.sub} strokeWidth={1.5} />
+                      <span className="cp-empty-text">ยังไม่มีบิลงับ</span>
+                    </div>
+                  )}
                   {data.subscriptions.map((sub, i) => (
                     <motion.div
                       key={i}
@@ -379,9 +469,14 @@ export default function Dashboard() {
                       variants={staggerItem}
                       transition={t(0.18)}
                     >
-                      <div>
+                      <div className="cp-row-body">
+                        <div className="cp-icon-badge" style={{ background: sub.daysLeft <= 3 ? C.expenseBg : C.transferBg }}>
+                          <CpIcon icon={Receipt} size={18} color={sub.daysLeft <= 3 ? C.expense : C.transfer} />
+                        </div>
+                        <div>
                         <div style={{ fontSize: 13, fontWeight: 500 }}>{sub.name}</div>
                         <div style={{ fontSize: 11, color: C.sub }}>วันที่ {sub.billingDay} ทุกเดือน</div>
+                        </div>
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: C.expense }}>฿{sub.amount.toLocaleString("th-TH")}</div>
@@ -400,7 +495,8 @@ export default function Dashboard() {
             animate={{ opacity: 1 }}
             transition={{ ...t(0.4), delay: reduceMotion ? 0 : 0.15 }}
           >
-            🐾 Cooper Financial Butler
+            <CpIcon icon={Cat} size={14} color={C.sub} strokeWidth={1.5} />
+            <span className="cp-footer-text">Cooper Financial Butler</span>
           </motion.div>
         </main>
       </div>

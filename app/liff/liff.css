@@ -325,11 +325,75 @@
 }
 
 .cp-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 14px 16px 10px;
   border-bottom: 1px solid #e5e5ea;
   font-size: 13px;
   font-weight: 600;
   color: #2c2c2e;
+}
+
+.cp-tab-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.cp-stat-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.cp-header-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cp-row-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cp-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.cp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+}
+
+.cp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 0 8px;
+}
+
+@media (min-width: 768px) {
+  .cp-tab-inner {
+    justify-content: flex-start;
+    width: 100%;
+  }
 }
 
 .cp-row {
@@ -345,11 +409,10 @@
   border-bottom: none;
 }
 
-.cp-empty {
-  padding: 24px;
-  text-align: center;
+.cp-empty-text {
   color: #8e8e93;
   font-size: 13px;
+  text-align: center;
 }
 
 .cp-stats {
@@ -367,10 +430,9 @@
   min-width: 0;
 }
 
-.cp-stat-label {
+.cp-stat-label-text {
   font-size: 11px;
   color: #8e8e93;
-  margin-bottom: 4px;
 }
 
 .cp-stat-value {
@@ -397,9 +459,7 @@
   padding: 8px 12px 16px;
 }
 
-.cp-footer {
-  text-align: center;
-  padding: 16px 0 8px;
+.cp-footer-text {
   font-size: 12px;
   color: #8e8e93;
 }
