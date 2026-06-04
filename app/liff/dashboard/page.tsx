@@ -1,6 +1,15 @@
 "use client";
 
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import {
+  fadeIn,
+  fadeUp,
+  motionTransition,
+  staggerContainer,
+  staggerItem,
+  tabPanel,
+} from "../motion";
 
 /* ─── Types ───────────────────────────────────────────────────── */
 interface Account { name: string; balance: number; type: string; isDefault: boolean }
@@ -50,6 +59,8 @@ export default function Dashboard() {
   const [tab, setTab] = useState<Tab>("overview");
   const chartRef = useRef<HTMLCanvasElement>(null);
   const chartInstance = useRef<unknown>(null);
+  const reduceMotion = useReducedMotion();
+  const t = (duration = 0.28) => motionTransition(reduceMotion, duration);
 
   useEffect(() => {
     async function init() {
@@ -159,171 +170,259 @@ export default function Dashboard() {
 
   if (error) return (
     <div className="cp-page">
-      <div className="cp-center">
-        <div style={{ fontSize: 32 }}>🐾</div>
+      <motion.div
+        className="cp-center"
+        variants={fadeUp}
+        initial="hidden"
+        animate="show"
+        transition={t(0.35)}
+      >
+        <motion.div
+          animate={reduceMotion ? {} : { y: [0, -6, 0] }}
+          transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+          style={{ fontSize: 32 }}
+        >
+          🐾
+        </motion.div>
         <div style={{ marginTop: 8, color: C.sub }}>{error}</div>
-      </div>
+      </motion.div>
     </div>
   );
 
   if (!data) return (
     <div className="cp-page">
-      <div className="cp-center">
-        <div style={{ fontSize: 40 }}>🐾</div>
+      <motion.div
+        className="cp-center"
+        variants={fadeIn}
+        initial="hidden"
+        animate="show"
+        transition={t(0.3)}
+      >
+        <motion.div
+          animate={reduceMotion ? {} : { scale: [1, 1.06, 1], opacity: [0.7, 1, 0.7] }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+          style={{ fontSize: 40 }}
+        >
+          🐾
+        </motion.div>
         <div style={{ marginTop: 8, fontSize: 14, color: C.sub }}>Cooper กำลังโหลดงับ...</div>
-      </div>
+      </motion.div>
     </div>
   );
 
   const s = data.weeklyStats;
 
   return (
-    <div className="cp-page">
-        {/* Header */}
-        <div className="cp-header">
-          <div className="cp-header-inner">
-            <div>
-              <div className="cp-header-balance">ยอดรวมทุกกระเป๋า</div>
-              <div className="cp-header-amount">
-                {data.totalBalance < 0 ? "-" : ""}฿{Math.abs(data.totalBalance).toLocaleString("th-TH")}
-              </div>
-            </div>
-            <div>
-              <div className="cp-header-grade-label">เกรดสัปดาห์นี้</div>
-              <div className="cp-header-grade">{s.grade}</div>
+    <motion.div
+      className="cp-page"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={t(0.35)}
+    >
+      <motion.div
+        className="cp-header"
+        variants={fadeUp}
+        initial="hidden"
+        animate="show"
+        transition={t(0.4)}
+      >
+        <div className="cp-header-inner">
+          <div>
+            <div className="cp-header-balance">ยอดรวมทุกกระเป๋า</div>
+            <div className="cp-header-amount">
+              {data.totalBalance < 0 ? "-" : ""}฿{Math.abs(data.totalBalance).toLocaleString("th-TH")}
             </div>
           </div>
+          <div>
+            <div className="cp-header-grade-label">เกรดสัปดาห์นี้</div>
+            <div className="cp-header-grade">{s.grade}</div>
+          </div>
         </div>
+      </motion.div>
 
-        {/* Shell: tabs + content */}
-        <div className="cp-shell">
+      <div className="cp-shell">
+        <nav className="cp-tabs">
+          {(["overview", "history", "debts", "bills"] as Tab[]).map((tabKey) => (
+            <motion.button
+              key={tabKey}
+              type="button"
+              className={`cp-tab${tab === tabKey ? " active" : ""}`}
+              onClick={() => setTab(tabKey)}
+              whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+              transition={t(0.12)}
+            >
+              {TAB_LABELS[tabKey]}
+            </motion.button>
+          ))}
+        </nav>
 
-          {/* Tabs / Sidebar */}
-          <nav className="cp-tabs">
-            {(["overview", "history", "debts", "bills"] as Tab[]).map((t) => (
-              <button key={t} className={`cp-tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-                {TAB_LABELS[t]}
-              </button>
-            ))}
-          </nav>
+        <main className="cp-content">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              className="cp-tab-panel"
+              variants={tabPanel}
+              initial="hidden"
+              animate="show"
+              exit="exit"
+              transition={t(0.22)}
+            >
+              {tab === "overview" && (
+                <>
+                  <motion.div
+                    className="cp-stats"
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="show"
+                  >
+                    {[
+                      { label: "รายรับสัปดาห์นี้", value: `+${fmt(s.totalIncome)}`, color: C.income },
+                      { label: "รายจ่ายสัปดาห์นี้", value: `-${fmt(s.totalExpense)}`, color: C.expense },
+                      { label: "อัตราออม", value: `${s.savingsRate}%`, color: C.transfer },
+                      { label: "หมวดเยอะสุด", value: s.topCategory, color: C.accent },
+                    ].map((item) => (
+                      <motion.div key={item.label} className="cp-stat" variants={staggerItem} transition={t(0.2)}>
+                        <div className="cp-stat-label">{item.label}</div>
+                        <div className="cp-stat-value" style={{ color: item.color }}>{item.value}</div>
+                      </motion.div>
+                    ))}
+                  </motion.div>
 
-          {/* Content */}
-          <main className="cp-content">
+                  <motion.div
+                    className="cp-overview-bottom"
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="show"
+                  >
+                    <motion.div className="cp-card" variants={staggerItem} transition={t(0.25)}>
+                      <div className="cp-card-header">สมดุลการเงิน 6 มิติ</div>
+                      <div className="cp-chart-wrap">
+                        <canvas ref={chartRef} />
+                      </div>
+                    </motion.div>
 
-            {/* ── Overview ── */}
-            {tab === "overview" && (
-              <>
-                <div className="cp-stats">
-                  {[
-                    { label: "รายรับสัปดาห์นี้", value: `+${fmt(s.totalIncome)}`, color: C.income },
-                    { label: "รายจ่ายสัปดาห์นี้", value: `-${fmt(s.totalExpense)}`, color: C.expense },
-                    { label: "อัตราออม", value: `${s.savingsRate}%`, color: C.transfer },
-                    { label: "หมวดเยอะสุด", value: s.topCategory, color: C.accent },
-                  ].map((item) => (
-                    <div key={item.label} className="cp-stat">
-                      <div className="cp-stat-label">{item.label}</div>
-                      <div className="cp-stat-value" style={{ color: item.color }}>{item.value}</div>
-                    </div>
+                    <motion.div className="cp-card" variants={staggerItem} transition={t(0.25)}>
+                      <div className="cp-card-header">กระเป๋าเงิน</div>
+                      {data.accounts.map((a) => {
+                        const color = a.type === "WALLET" ? C.income : a.type === "SAVINGS" ? C.transfer : C.accent;
+                        return (
+                          <div key={a.name} className="cp-row">
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 500 }}>{a.name}{a.isDefault ? " ⭐" : ""}</div>
+                              <div style={{ fontSize: 11, color: C.sub }}>{a.type}</div>
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color }}>
+                              {Number(a.balance) < 0 ? "-" : ""}฿{Math.abs(Number(a.balance)).toLocaleString("th-TH")}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </motion.div>
+                  </motion.div>
+                </>
+              )}
+
+              {tab === "history" && (
+                <motion.div
+                  className="cp-card"
+                  variants={staggerContainer}
+                  initial="hidden"
+                  animate="show"
+                >
+                  <div className="cp-card-header">รายการล่าสุด</div>
+                  {data.transactions.length === 0 && <div className="cp-empty">ยังไม่มีรายการงับ 🐾</div>}
+                  {data.transactions.map((tx, i) => (
+                    <motion.div key={i} className="cp-row" variants={staggerItem} transition={t(0.18)}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {tx.note || tx.category}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.sub }}>{tx.category} · {tx.accountName} · {fmtDate(tx.recordedAt)}</div>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: TYPE_COLOR[tx.type] ?? C.text, flexShrink: 0, marginLeft: 12 }}>
+                        {TYPE_SIGN[tx.type] ?? ""}฿{tx.amount.toLocaleString("th-TH")}
+                      </div>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
+              )}
 
-                <div className="cp-overview-bottom">
-                  <div className="cp-card">
-                    <div className="cp-card-header">สมดุลการเงิน 6 มิติ</div>
-                    <div className="cp-chart-wrap">
-                      <canvas ref={chartRef} />
-                    </div>
-                  </div>
-
-                  <div className="cp-card">
-                    <div className="cp-card-header">กระเป๋าเงิน</div>
-                    {data.accounts.map((a) => {
-                      const color = a.type === "WALLET" ? C.income : a.type === "SAVINGS" ? C.transfer : C.accent;
-                      return (
-                        <div key={a.name} className="cp-row">
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 500 }}>{a.name}{a.isDefault ? " ⭐" : ""}</div>
-                            <div style={{ fontSize: 11, color: C.sub }}>{a.type}</div>
-                          </div>
-                          <div style={{ fontSize: 15, fontWeight: 600, color }}>
-                            {Number(a.balance) < 0 ? "-" : ""}฿{Math.abs(Number(a.balance)).toLocaleString("th-TH")}
+              {tab === "debts" && (
+                <motion.div
+                  className="cp-card"
+                  variants={staggerContainer}
+                  initial="hidden"
+                  animate="show"
+                >
+                  <div className="cp-card-header">หนี้สิน</div>
+                  {data.debts.length === 0 && <div className="cp-empty">ไม่มีหนี้ค้างงับ 🐾</div>}
+                  {data.debts.map((d, i) => {
+                    const isLend = d.direction === "WE_LENT";
+                    return (
+                      <motion.div
+                        key={i}
+                        className="cp-row"
+                        style={{ background: isLend ? C.incomeBg : C.expenseBg }}
+                        variants={staggerItem}
+                        transition={t(0.18)}
+                      >
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>{d.personName}</div>
+                          <div style={{ fontSize: 11, color: isLend ? C.income : C.expense }}>
+                            {isLend ? "เราให้ยืม" : "เราเป็นหนี้"} · {d.daysAgo} วันที่แล้ว
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
+                        <div style={{ fontSize: 14, fontWeight: 600, color: isLend ? C.income : C.expense }}>
+                          {fmt(d.remaining)}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </motion.div>
+              )}
 
-            {/* ── History ── */}
-            {tab === "history" && (
-              <div className="cp-card">
-                <div className="cp-card-header">รายการล่าสุด</div>
-                {data.transactions.length === 0 && <div className="cp-empty">ยังไม่มีรายการงับ 🐾</div>}
-                {data.transactions.map((t, i) => (
-                  <div key={i} className="cp-row">
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {t.note || t.category}
-                      </div>
-                      <div style={{ fontSize: 11, color: C.sub }}>{t.category} · {t.accountName} · {fmtDate(t.recordedAt)}</div>
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: TYPE_COLOR[t.type] ?? C.text, flexShrink: 0, marginLeft: 12 }}>
-                      {TYPE_SIGN[t.type] ?? ""}฿{t.amount.toLocaleString("th-TH")}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* ── Debts ── */}
-            {tab === "debts" && (
-              <div className="cp-card">
-                <div className="cp-card-header">หนี้สิน</div>
-                {data.debts.length === 0 && <div className="cp-empty">ไม่มีหนี้ค้างงับ 🐾</div>}
-                {data.debts.map((d, i) => {
-                  const isLend = d.direction === "WE_LENT";
-                  return (
-                    <div key={i} className="cp-row" style={{ background: isLend ? C.incomeBg : C.expenseBg }}>
+              {tab === "bills" && (
+                <motion.div
+                  className="cp-card"
+                  variants={staggerContainer}
+                  initial="hidden"
+                  animate="show"
+                >
+                  <div className="cp-card-header">รอบบิลประจำ</div>
+                  {data.subscriptions.length === 0 && <div className="cp-empty">ยังไม่มีบิลงับ 🐾</div>}
+                  {data.subscriptions.map((sub, i) => (
+                    <motion.div
+                      key={i}
+                      className="cp-row"
+                      style={{ background: sub.daysLeft <= 3 ? C.expenseBg : "transparent" }}
+                      variants={staggerItem}
+                      transition={t(0.18)}
+                    >
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>{d.personName}</div>
-                        <div style={{ fontSize: 11, color: isLend ? C.income : C.expense }}>
-                          {isLend ? "เราให้ยืม" : "เราเป็นหนี้"} · {d.daysAgo} วันที่แล้ว
-                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{sub.name}</div>
+                        <div style={{ fontSize: 11, color: C.sub }}>วันที่ {sub.billingDay} ทุกเดือน</div>
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: isLend ? C.income : C.expense }}>
-                        {fmt(d.remaining)}
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.expense }}>฿{sub.amount.toLocaleString("th-TH")}</div>
+                        <div style={{ fontSize: 11, color: sub.daysLeft <= 3 ? C.expense : C.sub }}>อีก {sub.daysLeft} วัน</div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </motion.div>
+          </AnimatePresence>
 
-            {/* ── Bills ── */}
-            {tab === "bills" && (
-              <div className="cp-card">
-                <div className="cp-card-header">รอบบิลประจำ</div>
-                {data.subscriptions.length === 0 && <div className="cp-empty">ยังไม่มีบิลงับ 🐾</div>}
-                {data.subscriptions.map((sub, i) => (
-                  <div key={i} className="cp-row" style={{ background: sub.daysLeft <= 3 ? C.expenseBg : "transparent" }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{sub.name}</div>
-                      <div style={{ fontSize: 11, color: C.sub }}>วันที่ {sub.billingDay} ทุกเดือน</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: C.expense }}>฿{sub.amount.toLocaleString("th-TH")}</div>
-                      <div style={{ fontSize: 11, color: sub.daysLeft <= 3 ? C.expense : C.sub }}>อีก {sub.daysLeft} วัน</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="cp-footer">🐾 Cooper Financial Butler</div>
-          </main>
-        </div>
-    </div>
+          <motion.div
+            className="cp-footer"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ ...t(0.4), delay: reduceMotion ? 0 : 0.15 }}
+          >
+            🐾 Cooper Financial Butler
+          </motion.div>
+        </main>
+      </div>
+    </motion.div>
   );
 }

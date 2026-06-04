@@ -138,6 +138,16 @@
   overflow-y: auto;
 }
 
+.cp-tab-panel {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-tab {
+    transition: none;
+  }
+}
+
 /* Cards */
 .cp-card {
   background: #fff;
