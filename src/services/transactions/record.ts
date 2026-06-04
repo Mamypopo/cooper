@@ -8,13 +8,23 @@ export interface RecordResult {
   accountName: string;
 }
 
+export interface AccountNotFoundError {
+  type: "ACCOUNT_NOT_FOUND";
+  requestedName: string;
+}
+
 export async function recordTransaction(
   userId: string,
   parsed: ParsedRecord
-): Promise<RecordResult | null> {
+): Promise<RecordResult | AccountNotFoundError | null> {
   try {
-    const account = await resolveAccount(userId, parsed.account_name);
+    const { account, foundByName } = await resolveAccount(userId, parsed.account_name);
     if (!account) return null;
+
+    // ถ้าหาบัญชีตามชื่อไม่เจอ → แจ้งผู้ใช้แทนการ fallback เงียบๆ
+    if (!foundByName && parsed.account_name !== "กระเป๋าหลัก") {
+      return { type: "ACCOUNT_NOT_FOUND", requestedName: parsed.account_name };
+    }
 
     const isDebit =
       parsed.type === "EXPENSE" ||
@@ -59,9 +69,10 @@ async function resolveAccount(userId: string, accountName: string) {
   const byName = await prisma.account.findFirst({
     where: { userId, name: { contains: accountName, mode: "insensitive" }, isActive: true },
   });
-  if (byName) return byName;
+  if (byName) return { account: byName, foundByName: true };
 
-  return prisma.account.findFirst({
+  const defaultAccount = await prisma.account.findFirst({
     where: { userId, isDefault: true, isActive: true },
   });
+  return { account: defaultAccount, foundByName: false };
 }

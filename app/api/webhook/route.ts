@@ -175,6 +175,14 @@ async function handleRecord(replyToken: string, userId: string, text: string) {
     return;
   }
 
+  if ("type" in result && result.type === "ACCOUNT_NOT_FOUND") {
+    await replyText(
+      replyToken,
+      `ไม่เจอบัญชี "${result.requestedName}" งับ 🐾\n\nสร้างก่อนได้เลยนะงับ:\n"เพิ่มบัญชี ${result.requestedName} [ยอดเงิน]"\n\nหรือถ้าพิมพ์ชื่อผิดก็ลองใหม่ได้เลยงับ`
+    );
+    return;
+  }
+
   const newBalance = "newBalance" in result ? result.newBalance : new Prisma.Decimal(0);
   const accountName = "accountName" in result ? result.accountName : "กระเป๋าหลัก";
 
