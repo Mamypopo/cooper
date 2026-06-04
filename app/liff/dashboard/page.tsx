@@ -3,13 +3,13 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import {
-  fadeIn,
   fadeUp,
   motionTransition,
   staggerContainer,
   staggerItem,
   tabPanel,
 } from "../motion";
+import { DashboardSkeleton } from "./skeleton";
 
 /* ─── Types ───────────────────────────────────────────────────── */
 interface Account { name: string; balance: number; type: string; isDefault: boolean }
@@ -189,26 +189,7 @@ export default function Dashboard() {
     </div>
   );
 
-  if (!data) return (
-    <div className="cp-page">
-      <motion.div
-        className="cp-center"
-        variants={fadeIn}
-        initial="hidden"
-        animate="show"
-        transition={t(0.3)}
-      >
-        <motion.div
-          animate={reduceMotion ? {} : { scale: [1, 1.06, 1], opacity: [0.7, 1, 0.7] }}
-          transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-          style={{ fontSize: 40 }}
-        >
-          🐾
-        </motion.div>
-        <div style={{ marginTop: 8, fontSize: 14, color: C.sub }}>Cooper กำลังโหลดงับ...</div>
-      </motion.div>
-    </div>
-  );
+  if (!data) return <DashboardSkeleton />;
 
   const s = data.weeklyStats;
 
