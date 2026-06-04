@@ -24,8 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="th" className={`${inter.variable} ${notoSansThai.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="th" className={`${inter.variable} ${notoSansThai.variable} h-dvh antialiased`}>
+      <body className="min-h-dvh flex flex-col bg-[#F5F5F7]">{children}</body>
     </html>
   );
 }
