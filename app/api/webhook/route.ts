@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   );
 
   for (const event of events) {
-    processEvent(event).catch(console.error);
+    await processEvent(event).catch(console.error);
   }
 
   return NextResponse.json({ ok: true });
