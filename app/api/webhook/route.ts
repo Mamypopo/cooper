@@ -10,6 +10,10 @@ import { setupAccount, parseSetupCommand } from "@/services/accounts/setup";
 import { getAccountSummary } from "@/services/queries/accounts";
 import { getRecentTransactions } from "@/services/queries/transactions";
 import { getDebtSummary } from "@/services/queries/debts";
+import { runBudgetCheck } from "@/services/ai/budget-check";
+import { parseSubscriptionCommand, upsertSubscription, getSubscriptions } from "@/services/subscriptions/manage";
+import { buildSubscriptionConfirmFlex } from "@/flex-messages/subscription-confirm";
+import { buildSubscriptionListFlex } from "@/flex-messages/subscription-list";
 import { buildReceiptFlex } from "@/flex-messages/receipt";
 import { buildAccountConfirmFlex } from "@/flex-messages/account-confirm";
 import { buildAccountSummaryFlex } from "@/flex-messages/account-summary";
@@ -60,7 +64,14 @@ async function processEvent(event: LineMessageEvent) {
 
   const user = await prisma.user.findUniqueOrThrow({ where: { lineUserId } });
 
-  // Setup command (regex — ไม่เรียก Claude)
+  // Subscription command (regex — ไม่เรียก Claude)
+  const subCmd = parseSubscriptionCommand(text);
+  if (subCmd) {
+    await handleUpsertSubscription(replyToken, user.id, subCmd.name, subCmd.amount, subCmd.billingDay);
+    return;
+  }
+
+  // Setup account command (regex — ไม่เรียก Claude)
   const setupCmd = parseSetupCommand(text);
   if (setupCmd) {
     await handleSetupAccount(replyToken, user.id, setupCmd.name, setupCmd.balance);
@@ -81,6 +92,12 @@ async function processEvent(event: LineMessageEvent) {
       break;
     case "QUERY_DEBTS":
       await handleQueryDebts(replyToken, user.id);
+      break;
+    case "BUDGET_CHECK":
+      await handleBudgetCheck(replyToken, user.id, text);
+      break;
+    case "QUERY_SUBS":
+      await handleQuerySubs(replyToken, user.id);
       break;
     default:
       await replyText(
@@ -116,6 +133,29 @@ async function handleQueryDebts(replyToken: string, userId: string) {
   const data = await getDebtSummary(userId);
   const flex = buildDebtSummaryFlex(data);
   await replyFlex(replyToken, "สรุปหนี้สินงับ", flex);
+}
+
+async function handleUpsertSubscription(
+  replyToken: string, userId: string, name: string, amount: number, billingDay: number
+) {
+  const result = await upsertSubscription(userId, name, amount, billingDay);
+  if (!result) {
+    await replyText(replyToken, "เกิดข้อผิดพลาดในการบันทึกบิลงับ ลองใหม่อีกครั้งนะงับ 🐾");
+    return;
+  }
+  const flex = buildSubscriptionConfirmFlex(result);
+  await replyFlex(replyToken, `${result.isNew ? "เพิ่ม" : "อัปเดต"}บิล ${result.name} แล้วงับ`, flex);
+}
+
+async function handleQuerySubs(replyToken: string, userId: string) {
+  const subs = await getSubscriptions(userId);
+  const flex = buildSubscriptionListFlex(subs);
+  await replyFlex(replyToken, "รอบบิลประจำทั้งหมดงับ", flex);
+}
+
+async function handleBudgetCheck(replyToken: string, userId: string, text: string) {
+  const reply = await runBudgetCheck(userId, text);
+  await replyText(replyToken, reply);
 }
 
 async function handleRecord(replyToken: string, userId: string, text: string) {

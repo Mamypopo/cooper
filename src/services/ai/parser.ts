@@ -3,17 +3,19 @@ import type { ParsedRecord } from "@/types/ai";
 
 const RECORD_KEYWORDS = /\d+|ยืม|คืน|รับ|จ่าย|ซื้อ|ขาย|โอน|income|expense/i;
 const BUDGET_KEYWORDS = /ซื้อได้ไหม|งบพอไหม|อยากได้|กิเลส|ควรซื้อ|พอไหม/i;
-const ACCOUNT_QUERY = /ดูบัญชี|บัญชีฉัน|กระเป๋าเงิน|ยอดเงิน/i;
-const HISTORY_QUERY = /ดูประวัติ|ประวัติ|รายการ|transaction/i;
-const DEBT_QUERY    = /ดูหนี้|หนี้|ใครค้าง|สรุปหนี้/i;
+const ACCOUNT_QUERY  = /ดูบัญชี|บัญชีฉัน|กระเป๋าเงิน|ยอดเงิน/i;
+const HISTORY_QUERY  = /ดูประวัติ|ประวัติ|รายการ|transaction/i;
+const DEBT_QUERY     = /ดูหนี้|หนี้|ใครค้าง|สรุปหนี้/i;
+const SUB_QUERY      = /ดูบิล|รอบบิล|subscription ทั้งหมด/i;
 
-export type Intent = "RECORD" | "BUDGET_CHECK" | "QUERY_ACCOUNTS" | "QUERY_HISTORY" | "QUERY_DEBTS" | "UNKNOWN";
+export type Intent = "RECORD" | "BUDGET_CHECK" | "QUERY_ACCOUNTS" | "QUERY_HISTORY" | "QUERY_DEBTS" | "QUERY_SUBS" | "UNKNOWN";
 
 export function detectIntent(text: string): Intent {
   if (BUDGET_KEYWORDS.test(text)) return "BUDGET_CHECK";
   if (ACCOUNT_QUERY.test(text))   return "QUERY_ACCOUNTS";
   if (HISTORY_QUERY.test(text))   return "QUERY_HISTORY";
   if (DEBT_QUERY.test(text))      return "QUERY_DEBTS";
+  if (SUB_QUERY.test(text))       return "QUERY_SUBS";
   if (RECORD_KEYWORDS.test(text)) return "RECORD";
   return "UNKNOWN";
 }
