@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String   @id @default(cuid())
+  lineUserId  String   @unique
+  displayName String?
+  pictureUrl  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  accounts      Account[]
+  transactions  Transaction[]
+  debts         DebtRecord[]
+  subscriptions Subscription[]
+  settings      UserSettings?
+
+  @@index([lineUserId])
+}
+
+model UserSettings {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  monthlyBudget   Decimal? @db.Decimal(15, 2)
+  alertDaysBefore Int      @default(3)
+  enableSubAlert  Boolean  @default(true)
+  enableDebtAlert Boolean  @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id        String      @id @default(cuid())
+  userId    String
+  name      String
+  type      AccountType @default(WALLET)
+  balance   Decimal     @default(0) @db.Decimal(15, 2)
+  currency  String      @default("THB")
+  color     String?
+  isDefault Boolean     @default(false)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([userId, isDefault])
+}
+
+enum AccountType {
+  WALLET
+  SAVINGS
+  INVESTMENT
+  CREDIT
+}
+
+model Transaction {
+  id         String          @id @default(cuid())
+  userId     String
+  accountId  String
+  type       TransactionType
+  amount     Decimal         @db.Decimal(15, 2)
+  category   String
+  note       String?
+  aiMetadata Json?
+  recordedAt DateTime        @default(now())
+  createdAt  DateTime        @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@index([userId, recordedAt(sort: Desc)])
+  @@index([userId, type])
+  @@index([accountId, recordedAt(sort: Desc)])
+  @@index([userId, category])
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  DEBT_LEND
+  DEBT_REPAY
+}
+
+model DebtRecord {
+  id          String    @id @default(cuid())
+  userId      String
+  personName  String
+  direction   DebtDir
+  originalAmt Decimal   @db.Decimal(15, 2)
+  paidAmt     Decimal   @default(0) @db.Decimal(15, 2)
+  note        String?
+  dueDate     DateTime?
+  isPaid      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isPaid])
+  @@index([userId, personName])
+}
+
+enum DebtDir {
+  WE_LENT
+  WE_OWE
+}
+
+model Subscription {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  amount        Decimal   @db.Decimal(15, 2)
+  billingDay    Int
+  accountId     String?
+  category      String    @default("Subscription")
+  isActive      Boolean   @default(true)
+  lastAlertedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@index([userId, billingDay])
+}
