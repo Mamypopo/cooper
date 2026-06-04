@@ -71,43 +71,90 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!data || tab !== "overview" || !chartRef.current) return;
+
+    let cancelled = false;
+
     async function drawChart() {
       const { Chart, RadarController, RadialLinearScale, PointElement, LineElement, Filler, Tooltip } =
         await import("chart.js");
+      if (cancelled || !chartRef.current) return;
+
       Chart.register(RadarController, RadialLinearScale, PointElement, LineElement, Filler, Tooltip);
       if (chartInstance.current) (chartInstance.current as { destroy(): void }).destroy();
+
       const s = data!.weeklyStats;
       const savingsScore = Math.min(100, s.savingsRate * 2);
       const expenseScore = s.totalIncome > 0 ? Math.max(0, 100 - (s.totalExpense / s.totalIncome) * 100) : 50;
       const debtScore = Math.max(0, 100 - s.debtCount * 20);
-      chartInstance.current = new Chart(chartRef.current!, {
+      const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2.5) : 1;
+
+      chartInstance.current = new Chart(chartRef.current, {
         type: "radar",
         data: {
           labels: ["รายรับ", "รายจ่าย", "การออม", "ลงทุน", "วินัย", "เป้าหมาย"],
           datasets: [{
             data: [Math.min(100, (s.totalIncome / 50000) * 100), expenseScore, savingsScore, 50, debtScore, 70],
-            backgroundColor: "rgba(126,161,132,0.15)",
-            borderColor: C.income, borderWidth: 1.5,
-            pointBackgroundColor: C.income, pointBorderColor: "#fff", pointBorderWidth: 2, pointRadius: 4,
+            backgroundColor: "rgba(126, 161, 132, 0.22)",
+            borderColor: C.income,
+            borderWidth: 2.5,
+            pointBackgroundColor: C.income,
+            pointBorderColor: "#fff",
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 6,
           }],
         },
         options: {
           responsive: true,
-          maintainAspectRatio: true,
+          maintainAspectRatio: false,
+          devicePixelRatio: dpr,
+          animation: { duration: 400 },
+          layout: { padding: { top: 8, bottom: 4, left: 4, right: 4 } },
           scales: {
             r: {
-              min: 0, max: 100,
-              ticks: { display: false },
-              grid: { color: C.border },
-              angleLines: { color: C.border },
-              pointLabels: { font: { size: 11, family: "Noto Sans Thai, Inter" }, color: C.sub },
+              min: 0,
+              max: 100,
+              beginAtZero: true,
+              ticks: { display: false, stepSize: 25 },
+              grid: { color: "rgba(229, 229, 234, 0.9)", lineWidth: 1 },
+              angleLines: { color: "rgba(229, 229, 234, 0.75)", lineWidth: 1 },
+              pointLabels: {
+                font: { size: 13, weight: "bold", family: "var(--font-noto-sans-thai), Noto Sans Thai, Inter, sans-serif" },
+                color: C.text,
+                padding: 10,
+              },
             },
           },
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: C.text,
+              titleFont: { family: "var(--font-noto-sans-thai), Noto Sans Thai, sans-serif", size: 12 },
+              bodyFont: { family: "var(--font-noto-sans-thai), Noto Sans Thai, sans-serif", size: 12 },
+              callbacks: {
+                label: (ctx) => ` ${Math.round(ctx.parsed.r ?? 0)} คะแนน`,
+              },
+            },
+          },
         },
       });
+
+      requestAnimationFrame(() => {
+        (chartInstance.current as { resize?: () => void } | null)?.resize?.();
+      });
     }
+
     drawChart();
+
+    const onResize = () => {
+      (chartInstance.current as { resize?: () => void } | null)?.resize?.();
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("resize", onResize);
+    };
   }, [data, tab]);
 
   if (error) return (

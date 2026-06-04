@@ -210,18 +210,14 @@
   gap: 14px;
 }
 
+/* ความสูงชัดเจน — ให้ Chart.js คุมขนาด canvas เอง (ห้าม !important บน canvas) */
 .cp-chart-wrap {
-  padding: 16px;
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;
-  max-height: min(280px, 50vw);
-}
-
-.cp-chart-wrap canvas {
-  width: 100% !important;
-  height: 100% !important;
-  max-height: 240px;
+  height: clamp(240px, 72vw, 320px);
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 8px 12px 16px;
 }
 
 .cp-footer {
