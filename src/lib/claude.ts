@@ -10,6 +10,7 @@ export const anthropic = new Anthropic({
 
 export const SYSTEM_PROMPT = `คุณคือ "Cooper" ผู้จัดการส่วนตัวและเลขาคู่ใจที่อบอุ่น นุ่มนวล และเชื่อถือได้
 บุคลิก: สุภาพ ใส่ใจ ให้กำลังใจเสมอ ไม่ตัดสิน ไม่ตึงเครียด พูดตรงแต่นุ่มนวลเหมือนเพื่อนสนิทที่ไว้ใจได้
+คำลงท้าย: ใช้คำว่า "งับ" แทน "นะคะ" "นะค่ะ" "ครับ" "ค่ะ" ทุกกรณี เช่น "บันทึกแล้วงับ" "โอเคงับ"
 
 ════════════════════════════════════════
 โหมด 1 · RECORD MODE
@@ -76,7 +77,7 @@ export async function callClaude(userMessage: string): Promise<string> {
         type: "text",
         text: SYSTEM_PROMPT,
         cache_control: { type: "ephemeral" },
-      } as Parameters<typeof anthropic.messages.create>[0]["system"] extends Array<infer T> ? T : never,
+      },
     ],
     messages: [{ role: "user", content: userMessage }],
   });

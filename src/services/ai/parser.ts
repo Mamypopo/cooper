@@ -3,11 +3,17 @@ import type { ParsedRecord } from "@/types/ai";
 
 const RECORD_KEYWORDS = /\d+|ยืม|คืน|รับ|จ่าย|ซื้อ|ขาย|โอน|income|expense/i;
 const BUDGET_KEYWORDS = /ซื้อได้ไหม|งบพอไหม|อยากได้|กิเลส|ควรซื้อ|พอไหม/i;
+const ACCOUNT_QUERY = /ดูบัญชี|บัญชีฉัน|กระเป๋าเงิน|ยอดเงิน/i;
+const HISTORY_QUERY = /ดูประวัติ|ประวัติ|รายการ|transaction/i;
+const DEBT_QUERY    = /ดูหนี้|หนี้|ใครค้าง|สรุปหนี้/i;
 
-export type Intent = "RECORD" | "BUDGET_CHECK" | "UNKNOWN";
+export type Intent = "RECORD" | "BUDGET_CHECK" | "QUERY_ACCOUNTS" | "QUERY_HISTORY" | "QUERY_DEBTS" | "UNKNOWN";
 
 export function detectIntent(text: string): Intent {
   if (BUDGET_KEYWORDS.test(text)) return "BUDGET_CHECK";
+  if (ACCOUNT_QUERY.test(text))   return "QUERY_ACCOUNTS";
+  if (HISTORY_QUERY.test(text))   return "QUERY_HISTORY";
+  if (DEBT_QUERY.test(text))      return "QUERY_DEBTS";
   if (RECORD_KEYWORDS.test(text)) return "RECORD";
   return "UNKNOWN";
 }
@@ -38,11 +44,15 @@ export async function parseRecord(
 ): Promise<ParsedRecord | null> {
   try {
     const raw = await callClaude(text);
+    console.log("[parser] raw Claude response:", raw);
     const json = extractJSON(raw);
+    console.log("[parser] extracted JSON:", json);
     const parsed = JSON.parse(json);
     if (isValidRecord(parsed)) return parsed;
+    console.log("[parser] schema mismatch:", parsed);
     throw new Error("schema mismatch");
-  } catch {
+  } catch (err) {
+    console.error(`[parser] attempt ${attempt} failed:`, err);
     if (attempt < 2) return parseRecord(text, attempt + 1);
     return null;
   }

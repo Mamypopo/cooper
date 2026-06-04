@@ -98,7 +98,7 @@ export function buildReceiptFlex(params: {
       backgroundColor: "#F5F5F7",
       paddingAll: "10px",
       contents: [
-        { type: "text", text: "🐾  Cooper บันทึกให้แล้วนะคะ", size: "xs", color: "#8E8E93" },
+        { type: "text", text: "🐾  Cooper บันทึกให้แล้วงับ", size: "xs", color: "#8E8E93" },
       ],
     },
   };
