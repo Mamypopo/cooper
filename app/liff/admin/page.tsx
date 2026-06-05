@@ -2,15 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const C = {
-  text: "#2C2C2E", sub: "#8E8E93", border: "#E5E5EA", base: "#F5F5F7",
-  income: "#7EA184", incomeBg: "#EAF0EB",
-  expense: "#C58B7E", expenseBg: "#F7ECE9",
-  accent: "#9B8DB4", accentBg: "#F0EDF7",
-  transfer: "#6B8296",
-};
-
-type Tab = "stats" | "users" | "codes";
+type Tab      = "stats" | "users" | "codes";
 type UserRole = "ADMIN" | "SUBSCRIBER" | "PENDING";
 
 interface AdminUser {
@@ -23,15 +15,8 @@ interface AdminCode {
 }
 interface Stats { total: number; active: number; estimatedRevenue: number }
 
-const inputStyle: React.CSSProperties = {
-  padding: "8px 12px", borderRadius: 10, border: `1px solid ${C.border}`,
-  fontSize: 13, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box",
-};
-const btn = (bg = C.text): React.CSSProperties => ({
-  padding: "7px 14px", borderRadius: 8, border: "none",
-  background: bg, color: "#fff", fontSize: 12, fontWeight: 600,
-  cursor: "pointer", fontFamily: "inherit", flexShrink: 0,
-});
+const input = "w-full px-3 py-2 rounded-[10px] border border-line text-[13px] outline-none font-[inherit] box-border";
+const btn   = (color: string) => `px-3.5 py-1.5 rounded-lg border-0 text-white text-xs font-semibold cursor-pointer font-[inherit] shrink-0 ${color}`;
 
 export default function AdminPage() {
   const [token, setToken]           = useState("");
@@ -58,134 +43,113 @@ export default function AdminPage() {
     init();
   }, []);
 
-  function authHeaders(extra?: Record<string, string>) {
-    return { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...extra };
+  function authHeaders() {
+    return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   }
 
   async function loadAll(t: string) {
-    const headers = { Authorization: `Bearer ${t}` };
+    const h = { Authorization: `Bearer ${t}` };
     const [uRes, cRes] = await Promise.all([
-      fetch("/api/liff/admin/users", { headers }),
-      fetch("/api/liff/admin/codes", { headers }),
+      fetch("/api/liff/admin/users", { headers: h }),
+      fetch("/api/liff/admin/codes", { headers: h }),
     ]);
     if (!uRes.ok) { setAuthorized(false); return; }
     setAuthorized(true);
     const [uData, cData] = await Promise.all([uRes.json(), cRes.json()]);
-    setUsers(uData.users);
-    setStats(uData.stats);
-    setCodes(cData.codes);
+    setUsers(uData.users); setStats(uData.stats); setCodes(cData.codes);
   }
 
   async function handleActivate(targetLineUserId: string, days: number) {
-    await fetch("/api/liff/admin/users", {
-      method: "PUT", headers: authHeaders(),
-      body: JSON.stringify({ targetLineUserId, action: "activate", days }),
-    });
+    await fetch("/api/liff/admin/users", { method: "PUT", headers: authHeaders(), body: JSON.stringify({ targetLineUserId, action: "activate", days }) });
     await loadAll(token);
   }
-
   async function handleSuspend(targetLineUserId: string) {
-    await fetch("/api/liff/admin/users", {
-      method: "PUT", headers: authHeaders(),
-      body: JSON.stringify({ targetLineUserId, action: "suspend" }),
-    });
+    await fetch("/api/liff/admin/users", { method: "PUT", headers: authHeaders(), body: JSON.stringify({ targetLineUserId, action: "suspend" }) });
     await loadAll(token);
   }
-
   async function handleCreateCode() {
     if (!newCode.code || !newCode.discount) return;
-    await fetch("/api/liff/admin/codes", {
-      method: "POST", headers: authHeaders(),
-      body: JSON.stringify({ code: newCode.code, discount: newCode.discount, usageLimit: newCode.usageLimit ? Number(newCode.usageLimit) : null }),
-    });
+    await fetch("/api/liff/admin/codes", { method: "POST", headers: authHeaders(), body: JSON.stringify({ code: newCode.code, discount: newCode.discount, usageLimit: newCode.usageLimit ? Number(newCode.usageLimit) : null }) });
     setNewCode({ code: "", discount: 20, usageLimit: "" });
     await loadAll(token);
   }
-
   async function handleDeleteCode(code: string) {
-    await fetch("/api/liff/admin/codes", {
-      method: "DELETE", headers: authHeaders(),
-      body: JSON.stringify({ code }),
-    });
+    await fetch("/api/liff/admin/codes", { method: "DELETE", headers: authHeaders(), body: JSON.stringify({ code }) });
     await loadAll(token);
   }
 
   if (authorized === null) return (
-    <div className="cp-center">
-      <span style={{ fontSize: 13, color: C.sub }}>กำลังโหลด...</span>
-    </div>
+    <div className="flex flex-1 items-center justify-center min-h-dvh text-[13px] text-muted">กำลังโหลด...</div>
   );
-
   if (authorized === false) return (
-    <div className="cp-center">
-      <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
-      <div style={{ fontWeight: 600, color: C.text }}>สำหรับ Admin เท่านั้น</div>
+    <div className="flex flex-1 flex-col items-center justify-center min-h-dvh gap-2">
+      <div className="text-[32px]">🔒</div>
+      <div className="font-semibold text-charcoal">สำหรับ Admin เท่านั้น</div>
     </div>
   );
 
   const pendingUsers = users.filter(u => u.role === "PENDING");
   const TABS: [Tab, string][] = [["stats", "ภาพรวม"], ["users", "สมาชิก"], ["codes", "โค้ด"]];
 
+  const card  = "bg-white rounded-2xl border border-line overflow-hidden mb-3.5";
+  const row   = "flex justify-between items-center px-4 py-3 border-b border-line last:border-0";
+  const chead = "flex items-center gap-2 px-4 py-3 border-b border-line text-[13px] font-semibold text-charcoal";
+
   return (
-    <div className="cp-page">
+    <div className="flex flex-col min-h-dvh bg-sheet">
 
       {/* Header */}
-      <div className="cp-header">
-        <div className="cp-header-inner">
-          <div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>Cooper</div>
-            <div style={{ color: "#fff", fontSize: 18, fontWeight: 700, lineHeight: 1.2 }}>Admin Panel</div>
-          </div>
-        </div>
+      <div className="bg-charcoal pt-safe pl-safe pr-safe px-5 py-4 shrink-0">
+        <div className="text-white/50 text-[11px]">Cooper</div>
+        <div className="text-white text-lg font-bold leading-tight">Admin Panel</div>
       </div>
 
       {/* Tabs */}
-      <div className="cp-tabs">
+      <div className="flex bg-white border-b border-line shrink-0 overflow-x-auto scrollbar-none">
         {TABS.map(([key, label]) => (
-          <button key={key} className={`cp-tab${tab === key ? " active" : ""}`} onClick={() => setTab(key)}>
+          <button key={key} onClick={() => setTab(key)}
+            className={`flex-1 py-3 text-[13px] cursor-pointer font-[inherit] bg-transparent border-x-0 border-t-0 border-b-2 transition-colors ${
+              tab === key ? "font-semibold text-charcoal border-b-charcoal" : "font-normal text-muted border-b-transparent"
+            }`}>
             {label}
           </button>
         ))}
       </div>
 
       {/* Content */}
-      <div className="cp-content">
+      <div className="flex-1 p-4 pb-safe overflow-y-auto">
 
         {/* Stats */}
         {tab === "stats" && stats && (
           <>
-            <div className="cp-stats">
+            <div className="grid grid-cols-2 gap-2.5 mb-3.5">
               {[
-                { label: "สมาชิก active",  value: stats.active,                                         color: C.income   },
-                { label: "รอ approve",      value: pendingUsers.length,                                  color: C.accent   },
-                { label: "user ทั้งหมด",   value: stats.total,                                          color: C.transfer },
-                { label: "รายรับ/เดือน",   value: `฿${stats.estimatedRevenue.toLocaleString("th-TH")}`, color: C.income   },
+                { label: "สมาชิก active",  value: stats.active,                                         color: "text-income"   },
+                { label: "รอ approve",      value: pendingUsers.length,                                  color: "text-accent"   },
+                { label: "user ทั้งหมด",   value: stats.total,                                          color: "text-transfer" },
+                { label: "รายรับ/เดือน",   value: `฿${stats.estimatedRevenue.toLocaleString("th-TH")}`, color: "text-income"   },
               ].map(item => (
-                <div key={item.label} className="cp-stat">
-                  <div className="cp-stat-label-text">{item.label}</div>
-                  <div className="cp-stat-value" style={{ color: item.color, fontSize: 22 }}>{item.value}</div>
+                <div key={item.label} className="bg-white rounded-xl p-3.5 border border-line">
+                  <div className="text-[11px] text-muted mb-1">{item.label}</div>
+                  <div className={`text-[22px] font-bold ${item.color}`}>{item.value}</div>
                 </div>
               ))}
             </div>
 
             {pendingUsers.length > 0 && (
-              <div className="cp-card">
-                <div className="cp-card-header" style={{ color: C.accent }}>
-                  รอ approve ({pendingUsers.length})
-                </div>
+              <div className={card}>
+                <div className={`${chead} text-accent`}>รอ approve ({pendingUsers.length})</div>
                 {pendingUsers.map(u => (
-                  <div key={u.id} className="cp-row">
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{u.displayName ?? "ไม่มีชื่อ"}</div>
-                      <div style={{ fontSize: 11, color: C.sub, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.lineUserId}</div>
+                  <div key={u.id} className={row}>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-medium">{u.displayName ?? "ไม่มีชื่อ"}</div>
+                      <div className="text-[11px] text-muted mt-0.5 truncate">{u.lineUserId}</div>
                     </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <div className="flex gap-1.5 items-center">
                       <input type="number" min={1} value={activateDays[u.lineUserId] ?? 30}
                         onChange={e => setActivateDays(d => ({ ...d, [u.lineUserId]: Number(e.target.value) }))}
-                        style={{ width: 52, padding: "4px 6px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12, textAlign: "center", fontFamily: "inherit" }} />
-                      <button onClick={() => handleActivate(u.lineUserId, activateDays[u.lineUserId] ?? 30)} style={btn(C.income)}>
-                        เปิด
-                      </button>
+                        className="w-13 px-1.5 py-1 rounded-lg border border-line text-xs text-center font-[inherit]" />
+                      <button onClick={() => handleActivate(u.lineUserId, activateDays[u.lineUserId] ?? 30)} className={btn("bg-income")}>เปิด</button>
                     </div>
                   </div>
                 ))}
@@ -196,27 +160,25 @@ export default function AdminPage() {
 
         {/* Users */}
         {tab === "users" && (
-          <div className="cp-card">
-            {users.length === 0 && <div className="cp-empty"><span className="cp-empty-text">ยังไม่มีสมาชิก</span></div>}
+          <div className={card}>
+            {users.length === 0 && <div className="flex flex-col items-center p-6 text-[13px] text-muted">ยังไม่มีสมาชิก</div>}
             {users.map(u => {
               const isActive = u.role === "SUBSCRIBER" && (!u.subscriptionEnds || new Date(u.subscriptionEnds) > new Date());
-              const isAdmin  = u.role === "ADMIN";
+              const isAdminU = u.role === "ADMIN";
               const ends     = u.subscriptionEnds
                 ? new Date(u.subscriptionEnds).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })
                 : null;
               return (
-                <div key={u.id} className="cp-row" style={{ background: isActive ? C.incomeBg : "transparent" }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {u.displayName ?? "ไม่มีชื่อ"}
-                    </div>
-                    <div style={{ fontSize: 11, color: C.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.lineUserId}</div>
-                    {ends && <div style={{ fontSize: 11, color: isActive ? C.income : C.expense }}>ถึง {ends}</div>}
+                <div key={u.id} className={`${row} ${isActive ? "bg-income-bg" : ""}`}>
+                  <div className="min-w-0 flex-1 mr-2">
+                    <div className="text-[13px] font-medium truncate">{u.displayName ?? "ไม่มีชื่อ"}</div>
+                    <div className="text-[11px] text-muted truncate">{u.lineUserId}</div>
+                    {ends && <div className={`text-[11px] ${isActive ? "text-income" : "text-expense"}`}>ถึง {ends}</div>}
                   </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {!isAdmin && !isActive && <button onClick={() => handleActivate(u.lineUserId, 30)} style={btn(C.income)}>เปิด</button>}
-                    {!isAdmin &&  isActive && <button onClick={() => handleSuspend(u.lineUserId)}      style={btn(C.expense)}>ระงับ</button>}
-                    {isAdmin && <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>ADMIN</span>}
+                  <div className="flex gap-1.5">
+                    {!isAdminU && !isActive && <button onClick={() => handleActivate(u.lineUserId, 30)} className={btn("bg-income")}>เปิด</button>}
+                    {!isAdminU &&  isActive && <button onClick={() => handleSuspend(u.lineUserId)}      className={btn("bg-expense")}>ระงับ</button>}
+                    {isAdminU && <span className="text-[11px] text-accent font-semibold">ADMIN</span>}
                   </div>
                 </div>
               );
@@ -227,53 +189,53 @@ export default function AdminPage() {
         {/* Codes */}
         {tab === "codes" && (
           <>
-            <div className="cp-card" style={{ padding: 16, marginBottom: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>สร้างโค้ดใหม่</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="bg-white rounded-2xl border border-line p-4 mb-3.5">
+              <div className="text-[13px] font-semibold text-charcoal mb-3">สร้างโค้ดใหม่</div>
+              <div className="flex flex-col gap-2">
                 <input value={newCode.code} onChange={e => setNewCode(s => ({ ...s, code: e.target.value.toUpperCase() }))}
-                  placeholder="ชื่อโค้ด เช่น SUMMER50" style={inputStyle} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  placeholder="ชื่อโค้ด เช่น SUMMER50" className={input} />
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>ส่วนลด (%)</div>
+                    <div className="text-[11px] text-muted mb-1">ส่วนลด (%)</div>
                     <input type="number" min={1} max={100} value={newCode.discount}
-                      onChange={e => setNewCode(s => ({ ...s, discount: Number(e.target.value) }))} style={inputStyle} />
+                      onChange={e => setNewCode(s => ({ ...s, discount: Number(e.target.value) }))} className={input} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>จำกัด (ว่าง=ไม่จำกัด)</div>
+                    <div className="text-[11px] text-muted mb-1">จำกัด (ว่าง=ไม่จำกัด)</div>
                     <input type="number" min={1} value={newCode.usageLimit}
                       onChange={e => setNewCode(s => ({ ...s, usageLimit: e.target.value }))}
-                      placeholder="ไม่จำกัด" style={inputStyle} />
+                      placeholder="ไม่จำกัด" className={input} />
                   </div>
                 </div>
-                <button onClick={handleCreateCode} style={{ ...btn(), padding: "10px", width: "100%" }}>
+                <button onClick={handleCreateCode} className="w-full py-2.5 rounded-xl bg-charcoal text-white text-[13px] font-semibold cursor-pointer border-0">
                   สร้างโค้ด
                 </button>
               </div>
             </div>
 
-            <div className="cp-card">
-              <div className="cp-card-header">โค้ดทั้งหมด ({codes.length})</div>
-              {codes.length === 0 && <div className="cp-empty"><span className="cp-empty-text">ยังไม่มีโค้ด</span></div>}
+            <div className={card}>
+              <div className={chead}>โค้ดทั้งหมด ({codes.length})</div>
+              {codes.length === 0 && <div className="flex flex-col items-center p-6 text-[13px] text-muted">ยังไม่มีโค้ด</div>}
               {codes.map(c => (
-                <div key={c.id} className="cp-row" style={{ opacity: c.isActive ? 1 : 0.45 }}>
+                <div key={c.id} className={`${row} ${!c.isActive ? "opacity-45" : ""}`}>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.5 }}>{c.code}</span>
-                      <span style={{ background: C.incomeBg, color: C.income, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>-{c.discount}%</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold tracking-wide">{c.code}</span>
+                      <span className="bg-income-bg text-income text-[11px] font-bold px-2 py-0.5 rounded-full">-{c.discount}%</span>
                     </div>
-                    <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>
+                    <div className="text-[11px] text-muted mt-0.5">
                       ใช้แล้ว {c.usedCount}{c.usageLimit ? `/${c.usageLimit}` : ""} ครั้ง
                     </div>
                   </div>
-                  {c.isActive && <button onClick={() => handleDeleteCode(c.code)} style={btn(C.expense)}>ปิด</button>}
+                  {c.isActive && <button onClick={() => handleDeleteCode(c.code)} className={btn("bg-expense")}>ปิด</button>}
                 </div>
               ))}
             </div>
           </>
         )}
 
-        <div className="cp-footer">
-          <span className="cp-footer-text">🐾 Cooper Financial Butler</span>
+        <div className="flex items-center justify-center gap-1.5 pt-4 pb-2 text-xs text-muted">
+          🐾 Cooper Financial Butler
         </div>
       </div>
     </div>

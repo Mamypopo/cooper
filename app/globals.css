@@ -10,6 +10,20 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Cooper palette */
+  --color-charcoal:     #2C2C2E;
+  --color-muted:        #8E8E93;
+  --color-line:         #E5E5EA;
+  --color-sheet:        #F5F5F7;
+  --color-income:       #7EA184;
+  --color-income-bg:    #EAF0EB;
+  --color-expense:      #C58B7E;
+  --color-expense-bg:   #F7ECE9;
+  --color-transfer:     #6B8296;
+  --color-transfer-bg:  #EAF0F6;
+  --color-accent:       #9B8DB4;
+  --color-accent-bg:    #F0EDF7;
 }
 
 @media (prefers-color-scheme: dark) {

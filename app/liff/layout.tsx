@@ -7,10 +7,10 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function LiffLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return <div className="cp-app">{children}</div>;
+export default function LiffLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col flex-1 w-full min-h-dvh bg-sheet overflow-x-hidden font-[var(--font-noto-sans-thai),var(--font-inter),'Noto_Sans_Thai',Inter,sans-serif] text-charcoal">
+      {children}
+    </div>
+  );
 }
