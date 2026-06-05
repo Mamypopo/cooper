@@ -3,7 +3,7 @@ import { verifyLineSignature, replyText, replyFlex } from "@/lib/line";
 import type { LineWebhookBody, LineMessageEvent, LineTextMessage } from "@/lib/line";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { detectIntent, parseRecord } from "@/services/ai/parser";
+import { detectIntent, parseRecord, parseTransferCommand, parseBudgetSetCommand, parseCancelTxCommand, parseCloseDebtCommand } from "@/services/ai/parser";
 import { recordTransaction } from "@/services/transactions/record";
 import { recordDebt } from "@/services/transactions/debt";
 import { setupAccount, parseSetupCommand } from "@/services/accounts/setup";
@@ -19,6 +19,11 @@ import { buildAccountConfirmFlex } from "@/flex-messages/account-confirm";
 import { buildAccountSummaryFlex } from "@/flex-messages/account-summary";
 import { buildHistoryFlex } from "@/flex-messages/history";
 import { buildDebtSummaryFlex } from "@/flex-messages/debt-summary";
+import { buildTransferReceiptFlex } from "@/flex-messages/transfer-receipt";
+import { transferBetweenAccounts } from "@/services/transactions/transfer";
+import { cancelLatestTransaction } from "@/services/transactions/cancel";
+import { closeDebt } from "@/services/debts/close";
+import { cancelSubscription, parseCancelSubCommand } from "@/services/subscriptions/manage";
 
 export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-line-signature") ?? "";
@@ -63,6 +68,40 @@ async function processEvent(event: LineMessageEvent) {
   });
 
   const user = await prisma.user.findUniqueOrThrow({ where: { lineUserId } });
+
+  // ยกเลิก/ลบรายการล่าสุด
+  if (parseCancelTxCommand(text)) {
+    await handleCancelTx(replyToken, user.id);
+    return;
+  }
+
+  // ปิดหนี้ด้วยตัวเอง
+  const closeDebtName = parseCloseDebtCommand(text);
+  if (closeDebtName) {
+    await handleCloseDebt(replyToken, user.id, closeDebtName);
+    return;
+  }
+
+  // ยกเลิก subscription
+  const cancelSubName = parseCancelSubCommand(text);
+  if (cancelSubName) {
+    await handleCancelSub(replyToken, user.id, cancelSubName);
+    return;
+  }
+
+  // Transfer command (regex — ไม่เรียก Claude)
+  const transferCmd = parseTransferCommand(text);
+  if (transferCmd) {
+    await handleTransfer(replyToken, user.id, transferCmd.amount, transferCmd.from, transferCmd.to);
+    return;
+  }
+
+  // Budget setting command (regex — ไม่เรียก Claude)
+  const budgetAmt = parseBudgetSetCommand(text);
+  if (budgetAmt !== null) {
+    await handleSetBudget(replyToken, user.id, budgetAmt);
+    return;
+  }
 
   // Subscription command (regex — ไม่เรียก Claude)
   const subCmd = parseSubscriptionCommand(text);
@@ -151,6 +190,96 @@ async function handleQuerySubs(replyToken: string, userId: string) {
   const subs = await getSubscriptions(userId);
   const flex = buildSubscriptionListFlex(subs);
   await replyFlex(replyToken, "รอบบิลประจำทั้งหมดงับ", flex);
+}
+
+async function handleCancelTx(replyToken: string, userId: string) {
+  const result = await cancelLatestTransaction(userId);
+  if (!result) {
+    await replyText(replyToken, "เกิดข้อผิดพลาดงับ ลองใหม่อีกครั้งนะงับ 🐾");
+    return;
+  }
+  if ("type" in result && result.type === "NO_TRANSACTION") {
+    await replyText(replyToken, "ยังไม่มีรายการให้ลบงับ 🐾");
+    return;
+  }
+  if ("type" in result && result.type === "UNSUPPORTED_TYPE") {
+    await replyText(replyToken, "รายการล่าสุดเป็น TRANSFER หรือหนี้งับ ยกเลิกอัตโนมัติไม่ได้\nติดต่อผู้ดูแลระบบเพื่อแก้ไขงับ 🐾");
+    return;
+  }
+  if ("accountName" in result) {
+    await replyText(
+      replyToken,
+      `✅ ลบรายการ "${result.note}" ฿${result.amount.toLocaleString("th-TH")} แล้วงับ 🐾\nคงเหลือใน ${result.accountName}: ฿${Number(result.newBalance).toLocaleString("th-TH")}`
+    );
+  }
+}
+
+async function handleCloseDebt(replyToken: string, userId: string, personName: string) {
+  const result = await closeDebt(userId, personName);
+  if (!result) {
+    await replyText(replyToken, "เกิดข้อผิดพลาดงับ ลองใหม่อีกครั้งนะงับ 🐾");
+    return;
+  }
+  if ("type" in result && result.type === "DEBT_NOT_FOUND") {
+    await replyText(replyToken, `ไม่เจอหนี้ค้างของ "${result.personName}" งับ 🐾\nลองพิมพ์ชื่อใหม่ดูนะงับ`);
+    return;
+  }
+  if ("amount" in result) {
+    await replyText(
+      replyToken,
+      `✅ ปิดหนี้ ${result.personName} ฿${result.amount.toLocaleString("th-TH")} แล้วงับ 🐾\nเงินกลับเข้า ${result.accountName} คงเหลือ: ฿${Number(result.newBalance).toLocaleString("th-TH")}`
+    );
+  }
+}
+
+async function handleCancelSub(replyToken: string, userId: string, name: string) {
+  const result = await cancelSubscription(userId, name);
+  if (!result) {
+    await replyText(replyToken, "เกิดข้อผิดพลาดงับ ลองใหม่อีกครั้งนะงับ 🐾");
+    return;
+  }
+  if ("type" in result && result.type === "SUB_NOT_FOUND") {
+    await replyText(replyToken, `ไม่เจอบิล "${result.requestedName}" งับ 🐾\nลองพิมพ์ชื่อใหม่ดูนะงับ`);
+    return;
+  }
+  if ("name" in result) {
+    await replyText(replyToken, `✅ ยกเลิกบิล "${result.name}" แล้วงับ 🐾\nจะไม่แจ้งเตือนอีกต่อไปนะงับ`);
+  }
+}
+
+async function handleTransfer(replyToken: string, userId: string, amount: number, from: string, to: string) {
+  const result = await transferBetweenAccounts(userId, amount, from, to);
+  if (!result) {
+    await replyText(replyToken, "เกิดข้อผิดพลาดในการโอนงับ ลองใหม่อีกครั้งนะงับ 🐾");
+    return;
+  }
+  if ("type" in result && result.type === "ACCOUNT_NOT_FOUND") {
+    await replyText(
+      replyToken,
+      `ไม่เจอบัญชี "${result.requestedName}" งับ 🐾\n\nสร้างก่อนได้เลยนะงับ:\n"เพิ่มบัญชี ${result.requestedName} [ยอดเงิน]"`
+    );
+    return;
+  }
+  if ("fromAccount" in result) {
+    const flex = buildTransferReceiptFlex(result);
+    await replyFlex(replyToken, `โอน ฿${amount.toLocaleString("th-TH")} จาก ${result.fromAccount.name} ไป ${result.toAccount.name} แล้วงับ`, flex);
+  }
+}
+
+async function handleSetBudget(replyToken: string, userId: string, amount: number) {
+  try {
+    await prisma.userSettings.upsert({
+      where: { userId },
+      update: { monthlyBudget: amount },
+      create: { userId, monthlyBudget: amount },
+    });
+    await replyText(
+      replyToken,
+      `✅ ตั้งงบรายเดือนไว้ที่ ฿${amount.toLocaleString("th-TH")} แล้วงับ 🐾\n\nCooper จะช่วยดูแลให้ไม่เกินงบนะงับ`
+    );
+  } catch {
+    await replyText(replyToken, "เกิดข้อผิดพลาดในการตั้งงบงับ ลองใหม่อีกครั้งนะงับ 🐾");
+  }
 }
 
 async function handleBudgetCheck(replyToken: string, userId: string, text: string) {

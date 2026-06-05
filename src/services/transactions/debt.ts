@@ -37,38 +37,47 @@ export async function recordDebt(
         },
       });
 
-      if (isLend) {
-        await tx.account.update({
-          where: { id: account.id },
-          data: { balance: { decrement: amount } },
-        });
-      }
-
-      const existing = await tx.debtRecord.findFirst({
-        where: {
-          userId,
-          personName: { equals: parsed.debt_person!, mode: "insensitive" },
-          direction: isLend ? "WE_LENT" : "WE_OWE",
-          isPaid: false,
-        },
+      // LEND: หักเงินออก | REPAY: บวกเงินกลับเข้า
+      await tx.account.update({
+        where: { id: account.id },
+        data: { balance: isLend ? { decrement: amount } : { increment: amount } },
       });
 
-      const d = existing
-        ? await tx.debtRecord.update({
-            where: { id: existing.id },
-            data: { originalAmt: { increment: amount } },
-          })
-        : await tx.debtRecord.create({
-            data: {
-              userId,
-              personName: parsed.debt_person!,
-              direction: isLend ? "WE_LENT" : "WE_OWE",
-              originalAmt: amount,
-              note: parsed.note || null,
-            },
+      if (isLend) {
+        // เพิ่มหรือสะสมหนี้ที่ให้ยืม
+        const existing = await tx.debtRecord.findFirst({
+          where: { userId, personName: { equals: parsed.debt_person!, mode: "insensitive" }, direction: "WE_LENT", isPaid: false },
+        });
+        const d = existing
+          ? await tx.debtRecord.update({
+              where: { id: existing.id },
+              data: { originalAmt: { increment: amount } },
+            })
+          : await tx.debtRecord.create({
+              data: { userId, personName: parsed.debt_person!, direction: "WE_LENT", originalAmt: amount, note: parsed.note || null },
+            });
+        return [t, d];
+      } else {
+        // REPAY: อัปเดต paidAmt และปิดหนี้ถ้าชำระครบ
+        const existing = await tx.debtRecord.findFirst({
+          where: { userId, personName: { equals: parsed.debt_person!, mode: "insensitive" }, direction: "WE_LENT", isPaid: false },
+          orderBy: { createdAt: "asc" },
+        });
+        if (!existing) {
+          // ไม่เจอหนี้ที่ค้างอยู่ — สร้าง record ใหม่เป็น WE_OWE แทน
+          const d = await tx.debtRecord.create({
+            data: { userId, personName: parsed.debt_person!, direction: "WE_OWE", originalAmt: amount, paidAmt: amount, isPaid: true, note: parsed.note || null },
           });
-
-      return [t, d];
+          return [t, d];
+        }
+        const newPaid = existing.paidAmt.plus(amount);
+        const isPaid = newPaid.greaterThanOrEqualTo(existing.originalAmt);
+        const d = await tx.debtRecord.update({
+          where: { id: existing.id },
+          data: { paidAmt: newPaid, isPaid },
+        });
+        return [t, d];
+      }
     });
 
     const remaining = debt.originalAmt.minus(debt.paidAmt);

@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 async function buildBudgetContext(userId: string): Promise<string> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  const [accounts, recentExpenses, pendingDebts, upcomingBills] = await Promise.all([
+  const [accounts, recentExpenses, pendingDebts, upcomingBills, settings] = await Promise.all([
     prisma.account.findMany({
       where: { userId, isActive: true },
       select: { name: true, balance: true, isDefault: true },
@@ -27,6 +27,7 @@ async function buildBudgetContext(userId: string): Promise<string> {
       select: { name: true, amount: true, billingDay: true },
       orderBy: { billingDay: "asc" },
     }),
+    prisma.userSettings.findUnique({ where: { userId }, select: { monthlyBudget: true } }),
   ]);
 
   const totalBalance = accounts.reduce(
@@ -57,11 +58,17 @@ async function buildBudgetContext(userId: string): Promise<string> {
     .map((a) => `${a.name}${a.isDefault ? " [กระเป๋าหลัก]" : ""}: ฿${Number(a.balance).toLocaleString("th-TH")}`)
     .join(", ");
 
+  const monthlyBudget = settings?.monthlyBudget ? Number(settings.monthlyBudget) : null;
+  const budgetLine = monthlyBudget
+    ? `งบรายเดือนที่ตั้งไว้: ฿${monthlyBudget.toLocaleString("th-TH")} | ใช้ไปแล้ว: ฿${Number(avgExpense).toLocaleString("th-TH")} | เหลือ: ฿${Math.max(0, monthlyBudget - Number(avgExpense)).toLocaleString("th-TH")}`
+    : "งบรายเดือน: ยังไม่ได้ตั้ง";
+
   return `[ข้อมูลการเงินปัจจุบัน]
 ยอดเงินรวม: ฿${Number(totalBalance).toLocaleString("th-TH")}
 กระเป๋าหลัก: ${mainWalletStatus}
 บัญชีทั้งหมด: ${accountLines}
 รายจ่าย 30 วันที่ผ่านมา: ฿${Number(avgExpense).toLocaleString("th-TH")}
+${budgetLine}
 หนี้ที่ให้ยืมค้างอยู่: ฿${Number(totalDebt).toLocaleString("th-TH")}
 บิลที่จะถึงเร็วๆ นี้: ${upcoming || "ไม่มี"}`;
 }

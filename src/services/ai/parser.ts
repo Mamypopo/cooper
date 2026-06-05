@@ -8,7 +8,37 @@ const HISTORY_QUERY  = /ดูประวัติ|ประวัติ|รา
 const DEBT_QUERY     = /ดูหนี้|หนี้|ใครค้าง|สรุปหนี้/i;
 const SUB_QUERY      = /ดูบิล|รอบบิล|subscription ทั้งหมด/i;
 
+const TRANSFER_RE    = /^โอน\s+([\d,]+)\s+(?:จาก\s+)?(.+?)\s+ไป\s+(.+)/i;
+const BUDGET_SET_RE  = /(?:ตั้งงบ|งบเดือน(?:ละ|นี้)?|set\s*budget)\s+([\d,]+)/i;
+const CANCEL_TX_RE   = /(?:ลบ|ยกเลิก|แก้|cancel)\s*รายการ\s*(?:ล่าสุด|ที่แล้ว|เมื่อกี้)?/i;
+const CLOSE_DEBT_RE  = /(?:ปิดหนี้|คืนครบ|จ่ายครบ|ชำระครบ)\s+(.+)|(.+?)\s+(?:คืนครบแล้ว|จ่ายครบแล้ว|ชำระแล้ว)/i;
+
 export type Intent = "RECORD" | "BUDGET_CHECK" | "QUERY_ACCOUNTS" | "QUERY_HISTORY" | "QUERY_DEBTS" | "QUERY_SUBS" | "UNKNOWN";
+
+export function parseTransferCommand(text: string): { amount: number; from: string; to: string } | null {
+  const m = text.trim().match(TRANSFER_RE);
+  if (!m) return null;
+  const amount = parseFloat(m[1].replace(/,/g, ""));
+  if (isNaN(amount) || amount <= 0) return null;
+  return { amount, from: m[2].trim(), to: m[3].trim() };
+}
+
+export function parseBudgetSetCommand(text: string): number | null {
+  const m = text.trim().match(BUDGET_SET_RE);
+  if (!m) return null;
+  const amount = parseFloat(m[1].replace(/,/g, ""));
+  return isNaN(amount) || amount <= 0 ? null : amount;
+}
+
+export function parseCancelTxCommand(text: string): boolean {
+  return CANCEL_TX_RE.test(text.trim());
+}
+
+export function parseCloseDebtCommand(text: string): string | null {
+  const m = text.trim().match(CLOSE_DEBT_RE);
+  if (!m) return null;
+  return (m[1] ?? m[2])?.trim() ?? null;
+}
 
 export function detectIntent(text: string): Intent {
   if (BUDGET_KEYWORDS.test(text)) return "BUDGET_CHECK";
