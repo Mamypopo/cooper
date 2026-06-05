@@ -32,7 +32,7 @@ interface Account { name: string; balance: number; type: string; isDefault: bool
 interface Transaction { note: string | null; category: string; type: string; amount: number; accountName: string; recordedAt: string }
 interface Debt { personName: string; direction: string; remaining: number; daysAgo: number }
 interface Subscription { name: string; amount: number; billingDay: number; daysLeft: number }
-interface WeeklyStats { totalIncome: number; totalExpense: number; savingsRate: number; debtCount: number; topCategory: string; netChange: number; grade: string }
+interface WeeklyStats { totalIncome: number; totalExpense: number; savingsRate: number; debtCount: number; topCategory: string; netChange: number; budgetScore: number; liquidityScore: number; grade: string }
 
 interface DashboardData {
   accounts: Account[];
@@ -122,9 +122,9 @@ export default function Dashboard() {
       chartInstance.current = new Chart(chartRef.current, {
         type: "radar",
         data: {
-          labels: ["รายรับ", "รายจ่าย", "การออม", "ลงทุน", "วินัย", "เป้าหมาย"],
+          labels: ["รายรับ", "รายจ่าย", "การออม", "งบ", "วินัย", "สภาพคล่อง"],
           datasets: [{
-            data: [Math.min(100, (s.totalIncome / 50000) * 100), expenseScore, savingsScore, 50, debtScore, 70],
+            data: [Math.min(100, (s.totalIncome / 50000) * 100), expenseScore, savingsScore, s.budgetScore, debtScore, s.liquidityScore],
             backgroundColor: "rgba(126, 161, 132, 0.22)",
             borderColor: C.income,
             borderWidth: 2.5,

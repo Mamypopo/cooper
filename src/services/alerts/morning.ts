@@ -6,7 +6,8 @@ interface AlertData {
   userId: string;
   lineUserId: string;
   upcomingBills: { name: string; amount: number; daysLeft: number }[];
-  pendingDebts: { personName: string; amount: number; daysAgo: number }[];
+  lendingDebts: { personName: string; amount: number; daysAgo: number }[];
+  owingDebts: { personName: string; amount: number; daysAgo: number }[];
 }
 
 async function buildAlertData(): Promise<AlertData[]> {
@@ -16,7 +17,7 @@ async function buildAlertData(): Promise<AlertData[]> {
     include: {
       settings: true,
       subscriptions: { where: { isActive: true } },
-      debts: { where: { isPaid: false, direction: "WE_LENT" } },
+      debts: { where: { isPaid: false } },
     },
   });
 
@@ -38,19 +39,18 @@ async function buildAlertData(): Promise<AlertData[]> {
             .filter((s) => s.daysLeft <= alertDays)
         : [];
 
-      const pendingDebts = enableDebt
-        ? user.debts.map((d) => ({
-            personName: d.personName,
-            amount: Number(d.originalAmt) - Number(d.paidAmt),
-            daysAgo: Math.floor(
-              (Date.now() - d.createdAt.getTime()) / 86400000
-            ),
-          }))
-        : [];
+      const toDebtItem = (d: typeof user.debts[0]) => ({
+        personName: d.personName,
+        amount: Number(d.originalAmt) - Number(d.paidAmt),
+        daysAgo: Math.floor((Date.now() - d.createdAt.getTime()) / 86400000),
+      });
 
-      return { userId: user.id, lineUserId: user.lineUserId, upcomingBills, pendingDebts };
+      const lendingDebts = enableDebt ? user.debts.filter((d) => d.direction === "WE_LENT").map(toDebtItem) : [];
+      const owingDebts   = enableDebt ? user.debts.filter((d) => d.direction === "WE_OWE").map(toDebtItem) : [];
+
+      return { userId: user.id, lineUserId: user.lineUserId, upcomingBills, lendingDebts, owingDebts };
     })
-    .filter((u) => u.upcomingBills.length > 0 || u.pendingDebts.length > 0);
+    .filter((u) => u.upcomingBills.length > 0 || u.lendingDebts.length > 0 || u.owingDebts.length > 0);
 }
 
 async function writeAlertMessage(data: Omit<AlertData, "userId" | "lineUserId">): Promise<string> {
@@ -58,13 +58,18 @@ async function writeAlertMessage(data: Omit<AlertData, "userId" | "lineUserId">)
     .map((b) => `- ${b.name} ฿${b.amount.toLocaleString("th-TH")} (อีก ${b.daysLeft} วัน)`)
     .join("\n");
 
-  const debtLines = data.pendingDebts
+  const lendingLines = data.lendingDebts
+    .map((d) => `- ${d.personName} ฿${d.amount.toLocaleString("th-TH")} (ค้างมา ${d.daysAgo} วัน)`)
+    .join("\n");
+
+  const owingLines = data.owingDebts
     .map((d) => `- ${d.personName} ฿${d.amount.toLocaleString("th-TH")} (ค้างมา ${d.daysAgo} วัน)`)
     .join("\n");
 
   const context = [
-    data.upcomingBills.length > 0 ? `บิลที่จะถึงเร็วๆ นี้:\n${billLines}` : "",
-    data.pendingDebts.length > 0 ? `หนี้ที่ยังไม่ได้รับคืน:\n${debtLines}` : "",
+    data.upcomingBills.length > 0  ? `บิลที่จะถึงเร็วๆ นี้:\n${billLines}` : "",
+    data.lendingDebts.length > 0   ? `หนี้ที่ยังไม่ได้รับคืน (คนอื่นค้างเรา):\n${lendingLines}` : "",
+    data.owingDebts.length > 0     ? `หนี้ที่เราค้างคนอื่น (ต้องจ่ายคืน):\n${owingLines}` : "",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -99,7 +104,8 @@ export async function runMorningAlert(): Promise<{ sent: number }> {
     try {
       const message = await writeAlertMessage({
         upcomingBills: target.upcomingBills,
-        pendingDebts: target.pendingDebts,
+        lendingDebts: target.lendingDebts,
+        owingDebts: target.owingDebts,
       });
       await pushText(target.lineUserId, message);
       sent++;

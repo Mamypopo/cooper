@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 export interface CloseDebtResult {
   personName: string;
   amount: number;
+  direction: "WE_LENT" | "WE_OWE";
   accountName: string;
   newBalance: Prisma.Decimal;
 }
@@ -18,18 +19,20 @@ export async function closeDebt(
   personName: string
 ): Promise<CloseDebtResult | CloseDebtError | null> {
   try {
-    const debt = await prisma.debtRecord.findFirst({
-      where: {
-        userId,
-        personName: { contains: personName, mode: "insensitive" },
-        direction: "WE_LENT",
-        isPaid: false,
-      },
-    });
+    // หาหนี้ทั้ง 2 ทิศทาง — priority WE_LENT (รับคืน) ก่อน
+    const debt =
+      (await prisma.debtRecord.findFirst({
+        where: { userId, personName: { contains: personName, mode: "insensitive" }, direction: "WE_LENT", isPaid: false },
+      })) ??
+      (await prisma.debtRecord.findFirst({
+        where: { userId, personName: { contains: personName, mode: "insensitive" }, direction: "WE_OWE", isPaid: false },
+      }));
 
     if (!debt) return { type: "DEBT_NOT_FOUND", personName };
 
     const remaining = debt.originalAmt.minus(debt.paidAmt);
+    const isReceiving = debt.direction === "WE_LENT";
+
     const account = await prisma.account.findFirst({
       where: { userId, isDefault: true, isActive: true },
     });
@@ -42,7 +45,7 @@ export async function closeDebt(
       }),
       prisma.account.update({
         where: { id: account.id },
-        data: { balance: { increment: remaining } },
+        data: { balance: isReceiving ? { increment: remaining } : { decrement: remaining } },
       }),
       prisma.transaction.create({
         data: {
@@ -50,8 +53,8 @@ export async function closeDebt(
           accountId: account.id,
           type: "DEBT_REPAY",
           amount: remaining,
-          category: "รับคืนหนี้",
-          note: `${debt.personName} คืนครบ`,
+          category: isReceiving ? "รับคืนหนี้" : "คืนหนี้",
+          note: isReceiving ? `${debt.personName} คืนครบ` : `คืนเงิน ${debt.personName} ครบ`,
         },
       }),
     ]);
@@ -59,6 +62,7 @@ export async function closeDebt(
     return {
       personName: debt.personName,
       amount: Number(remaining),
+      direction: debt.direction,
       accountName: updatedAccount.name,
       newBalance: updatedAccount.balance,
     };

@@ -257,10 +257,10 @@ async function handleCloseDebt(replyToken: string, userId: string, personName: s
     return;
   }
   if ("amount" in result) {
-    await replyText(
-      replyToken,
-      `✅ ปิดหนี้ ${result.personName} ฿${result.amount.toLocaleString("th-TH")} แล้วงับ 🐾\nเงินกลับเข้า ${result.accountName} คงเหลือ: ฿${Number(result.newBalance).toLocaleString("th-TH")}`
-    );
+    const msg = result.direction === "WE_LENT"
+      ? `✅ ${result.personName} คืนครบแล้วงับ 🐾\nรับ ฿${result.amount.toLocaleString("th-TH")} เข้า ${result.accountName}\nคงเหลือ: ฿${Number(result.newBalance).toLocaleString("th-TH")}`
+      : `✅ คืนเงิน ${result.personName} ครบแล้วงับ 🐾\nจ่าย ฿${result.amount.toLocaleString("th-TH")} จาก ${result.accountName}\nคงเหลือ: ฿${Number(result.newBalance).toLocaleString("th-TH")}`;
+    await replyText(replyToken, msg);
   }
 }
 
