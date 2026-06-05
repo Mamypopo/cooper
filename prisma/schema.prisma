@@ -8,13 +8,21 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum UserRole {
+  ADMIN
+  SUBSCRIBER
+  PENDING
+}
+
 model User {
-  id          String   @id @default(cuid())
-  lineUserId  String   @unique
-  displayName String?
-  pictureUrl  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String    @id @default(cuid())
+  lineUserId       String    @unique
+  displayName      String?
+  pictureUrl       String?
+  role             UserRole  @default(PENDING)
+  subscriptionEnds DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   accounts      Account[]
   transactions  Transaction[]

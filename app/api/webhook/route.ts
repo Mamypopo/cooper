@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyLineSignature, replyText, replyFlex } from "@/lib/line";
+import { verifyLineSignature, replyText, replyFlex, pushText } from "@/lib/line";
 import type { LineWebhookBody, LineMessageEvent, LineTextMessage } from "@/lib/line";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
@@ -23,6 +23,7 @@ import { buildTransferReceiptFlex } from "@/flex-messages/transfer-receipt";
 import { transferBetweenAccounts } from "@/services/transactions/transfer";
 import { cancelLatestTransaction } from "@/services/transactions/cancel";
 import { isRecordRateLimited } from "@/lib/rate-limit";
+import { checkAccess, activateSubscriber, suspendUser, listSubscribers } from "@/services/access/check";
 import { closeDebt } from "@/services/debts/close";
 import { cancelSubscription, parseCancelSubCommand } from "@/services/subscriptions/manage";
 
@@ -84,11 +85,14 @@ async function processEvent(event: LineMessageEvent) {
 
   const text = message.text.trim();
 
+  const isAdmin = lineUserId === process.env.ADMIN_LINE_USER_ID;
+
   await prisma.user.upsert({
     where: { lineUserId },
     update: {},
     create: {
       lineUserId,
+      role: isAdmin ? "ADMIN" : "PENDING",
       settings: { create: {} },
       accounts: {
         create: { name: "กระเป๋าหลัก", type: "WALLET", isDefault: true },
@@ -97,6 +101,57 @@ async function processEvent(event: LineMessageEvent) {
   });
 
   const user = await prisma.user.findUniqueOrThrow({ where: { lineUserId } });
+
+  // Admin upgrade ตัวเองเป็น ADMIN ถ้า role ยัง PENDING
+  if (isAdmin && user.role === "PENDING") {
+    await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+  }
+
+  // Admin commands
+  if (isAdmin) {
+    const activateMatch = text.match(/^ยืนยัน\s+(U\w+)(?:\s+(\d+))?/);
+    if (activateMatch) {
+      const days = activateMatch[2] ? parseInt(activateMatch[2]) : 30;
+      const result = await activateSubscriber(activateMatch[1], days);
+      if (!result) { await replyText(replyToken, "ไม่เจอ user งับ"); return; }
+      const ends = result.subscriptionEnds.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+      await replyText(replyToken, `✅ เปิดสิทธิ์ ${result.displayName ?? activateMatch[1]} แล้วงับ\nหมดอายุ: ${ends}`);
+      await pushText(activateMatch[1], `🎉 สมัครสมาชิก Cooper สำเร็จแล้วงับ!\nสิทธิ์ใช้งานถึง ${ends}\n\nเริ่มใช้ได้เลยนะงับ 🐾`);
+      return;
+    }
+    const suspendMatch = text.match(/^ระงับ\s+(U\w+)/);
+    if (suspendMatch) {
+      const result = await suspendUser(suspendMatch[1]);
+      if (!result) { await replyText(replyToken, "ไม่เจอ user งับ"); return; }
+      await replyText(replyToken, `✅ ระงับสิทธิ์ ${result.displayName ?? suspendMatch[1]} แล้วงับ`);
+      return;
+    }
+    if (/^สมาชิก$|^รายชื่อสมาชิก$/.test(text.trim())) {
+      const subs = await listSubscribers();
+      const lines = subs.map((s) => {
+        const ends = s.subscriptionEnds
+          ? s.subscriptionEnds.toLocaleDateString("th-TH", { day: "numeric", month: "short" })
+          : "ไม่หมด";
+        return `• ${s.displayName ?? s.lineUserId} [${s.role}] ถึง ${ends}`;
+      });
+      await replyText(replyToken, `สมาชิกทั้งหมด ${subs.length} คนงับ\n\n${lines.join("\n")}`);
+      return;
+    }
+  }
+
+  // Access check — non-admin
+  if (!isAdmin) {
+    const access = await checkAccess(user.id);
+    if (access === "PENDING") {
+      const subUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_APP_ID?.split("-")[0]}-subscribe`;
+      await replyText(replyToken, `สวัสดีงับ 🐾 Cooper เป็นระบบสำหรับสมาชิกเท่านั้นนะงับ\n\nสมัครสมาชิกได้ที่นี่เลยงับ:\n${process.env.NEXT_PUBLIC_APP_URL}/liff/subscribe`);
+      return;
+    }
+    if (access === "EXPIRED") {
+      await replyText(replyToken, `สิทธิ์สมาชิกของคุณหมดอายุแล้วงับ 🐾\nต่ออายุได้ที่:\n${process.env.NEXT_PUBLIC_APP_URL}/liff/subscribe`);
+      return;
+    }
+  }
 
   // ยกเลิก/ลบรายการล่าสุด
   if (parseCancelTxCommand(text)) {
