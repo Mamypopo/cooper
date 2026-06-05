@@ -90,27 +90,7 @@ export function buildHistoryFlex(txs: RecentTransaction[]): messagingApi.FlexCon
           paddingStart: "8px",
           contents: [
             { type: "text", text: title, size: "sm", weight: "bold", color: "#2C2C2E", wrap: true, maxLines: 2 },
-            {
-              type: "box",
-              layout: "horizontal",
-              margin: "xs",
-              contents: [
-                {
-                  type: "box",
-                  layout: "vertical",
-                  backgroundColor: bg,
-                  cornerRadius: "20px",
-                  paddingTop: "2px",
-                  paddingBottom: "2px",
-                  paddingStart: "8px",
-                  paddingEnd: "8px",
-                  contents: [
-                    { type: "text", text: label, size: "xxs", color, weight: "bold" },
-                  ],
-                },
-                { type: "text", text: `· ${t.accountName}`, size: "xxs", color: "#AEAEB2", margin: "sm", flex: 1 },
-              ],
-            },
+            { type: "text", text: `${label} · ${t.accountName}`, size: "xxs", color, margin: "xs", wrap: false },
           ],
         },
         // ยอดเงิน + วันเวลา
