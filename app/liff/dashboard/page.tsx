@@ -24,6 +24,8 @@ import {
   TrendingDown,
   TrendingUp,
   TX_ICONS,
+  Loader2,
+  RefreshCw,
   Wallet,
 } from "./icons";
 
@@ -308,7 +310,7 @@ export default function Dashboard() {
                   transition: "opacity 0.2s",
                 }}
               >
-                {isRefreshing ? "⏳" : "🔄"}
+                <CpIcon icon={isRefreshing ? Loader2 : RefreshCw} size={16} color="#fff" />
               </button>
             </div>
           </div>

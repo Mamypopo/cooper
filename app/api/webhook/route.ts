@@ -6,7 +6,7 @@ import { Prisma } from "@prisma/client";
 import { detectIntent, parseRecord, parseTransferCommand, parseBudgetSetCommand, parseCancelTxCommand, parseCloseDebtCommand } from "@/services/ai/parser";
 import { recordTransaction } from "@/services/transactions/record";
 import { recordDebt } from "@/services/transactions/debt";
-import { setupAccount, parseSetupCommand } from "@/services/accounts/setup";
+import { setupAccount, parseSetupCommand, renameAccount, parseRenameAccountCommand } from "@/services/accounts/setup";
 import { getAccountSummary } from "@/services/queries/accounts";
 import { getRecentTransactions } from "@/services/queries/transactions";
 import { getDebtSummary } from "@/services/queries/debts";
@@ -139,6 +139,13 @@ async function processEvent(event: LineMessageEvent) {
     return;
   }
 
+  // Rename account command
+  const renameCmd = parseRenameAccountCommand(text);
+  if (renameCmd) {
+    await handleRenameAccount(replyToken, user.id, renameCmd.oldName, renameCmd.newName);
+    return;
+  }
+
   // Setup account command (regex — ไม่เรียก Claude)
   const setupCmd = parseSetupCommand(text);
   if (setupCmd) {
@@ -180,6 +187,15 @@ async function processEvent(event: LineMessageEvent) {
         await replyText(replyToken, `สวัสดีงับ 🐾 ไม่แน่ใจว่าหมายถึงอะไร\nพิมพ์ "ช่วยเหลือ" เพื่อดูคำสั่งทั้งหมดได้เลยนะงับ`);
       }
   }
+}
+
+async function handleRenameAccount(replyToken: string, userId: string, oldName: string, newName: string) {
+  const result = await renameAccount(userId, oldName, newName);
+  if (!result) {
+    await replyText(replyToken, `ไม่เจอบัญชี "${oldName}" งับ 🐾\nลองพิมพ์ "ดูบัญชี" เพื่อเช็คชื่อที่ถูกต้องนะงับ`);
+    return;
+  }
+  await replyText(replyToken, `✅ เปลี่ยนชื่อบัญชี "${result.oldName}" เป็น "${result.newName}" แล้วงับ 🐾`);
 }
 
 async function handleSetupAccount(replyToken: string, userId: string, name: string, balance: number) {
