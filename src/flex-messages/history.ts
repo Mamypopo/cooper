@@ -89,7 +89,7 @@ export function buildHistoryFlex(txs: RecentTransaction[]): messagingApi.FlexCon
           flex: 1,
           paddingStart: "8px",
           contents: [
-            { type: "text", text: title, size: "sm", weight: "bold", color: "#2C2C2E", wrap: false },
+            { type: "text", text: title, size: "sm", weight: "bold", color: "#2C2C2E", wrap: true, maxLines: 2 },
             {
               type: "box",
               layout: "horizontal",
@@ -133,6 +133,7 @@ export function buildHistoryFlex(txs: RecentTransaction[]): messagingApi.FlexCon
       type: "box",
       layout: "vertical",
       paddingAll: "0px",
+      backgroundColor: "#FFFFFF",
       contents: [
         {
           type: "box",
@@ -141,10 +142,11 @@ export function buildHistoryFlex(txs: RecentTransaction[]): messagingApi.FlexCon
           paddingBottom: "12px",
           paddingStart: "16px",
           paddingEnd: "16px",
-          backgroundColor: "#2C2C2E",
+          borderColor: "#E5E5EA",
+          borderWidth: "0px 0px 1px 0px",
           contents: [
-            { type: "text", text: "รายการล่าสุด", weight: "bold", size: "md", color: "#FFFFFF" },
-            { type: "text", text: `${txs.length} รายการ`, size: "xs", color: "#FFFFFF80", align: "end", gravity: "bottom" },
+            { type: "text", text: "รายการล่าสุด", weight: "bold", size: "md", color: "#2C2C2E" },
+            { type: "text", text: `${txs.length} รายการ`, size: "xs", color: "#8E8E93", align: "end", gravity: "bottom" },
           ],
         },
         {
