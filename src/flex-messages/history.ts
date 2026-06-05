@@ -11,7 +11,8 @@ const TYPE_COLOR: Record<string, string> = {
 };
 
 function formatDate(d: Date): string {
-  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" }) +
+    " " + d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
 }
 
 export function buildHistoryFlex(txs: RecentTransaction[]): messagingApi.FlexContainer {
