@@ -23,14 +23,24 @@ interface AdminCode {
 }
 interface Stats { total: number; active: number; estimatedRevenue: number }
 
+const inputStyle: React.CSSProperties = {
+  padding: "8px 12px", borderRadius: 10, border: `1px solid ${C.border}`,
+  fontSize: 13, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box",
+};
+const btn = (bg = C.text): React.CSSProperties => ({
+  padding: "7px 14px", borderRadius: 8, border: "none",
+  background: bg, color: "#fff", fontSize: 12, fontWeight: 600,
+  cursor: "pointer", fontFamily: "inherit", flexShrink: 0,
+});
+
 export default function AdminPage() {
-  const [token, setToken] = useState("");
+  const [token, setToken]           = useState("");
   const [authorized, setAuthorized] = useState<boolean | null>(null);
-  const [tab, setTab] = useState<Tab>("stats");
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [codes, setCodes] = useState<AdminCode[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [newCode, setNewCode] = useState({ code: "", discount: 20, usageLimit: "" });
+  const [tab, setTab]               = useState<Tab>("stats");
+  const [users, setUsers]           = useState<AdminUser[]>([]);
+  const [codes, setCodes]           = useState<AdminCode[]>([]);
+  const [stats, setStats]           = useState<Stats | null>(null);
+  const [newCode, setNewCode]       = useState({ code: "", discount: 20, usageLimit: "" });
   const [activateDays, setActivateDays] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -60,8 +70,7 @@ export default function AdminPage() {
     ]);
     if (!uRes.ok) { setAuthorized(false); return; }
     setAuthorized(true);
-    const uData = await uRes.json();
-    const cData = await cRes.json();
+    const [uData, cData] = await Promise.all([uRes.json(), cRes.json()]);
     setUsers(uData.users);
     setStats(uData.stats);
     setCodes(cData.codes);
@@ -101,80 +110,80 @@ export default function AdminPage() {
     await loadAll(token);
   }
 
-  const inputStyle = { padding: "8px 12px", borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" as const };
-  const btnStyle = (color = C.text) => ({ padding: "7px 14px", borderRadius: 8, border: "none", background: color, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" });
-
   if (authorized === null) return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", fontFamily: "Noto Sans Thai, Inter, sans-serif", color: C.sub }}>
-      กำลังโหลด...
+    <div className="cp-center">
+      <span style={{ fontSize: 13, color: C.sub }}>กำลังโหลด...</span>
     </div>
   );
 
   if (authorized === false) return (
-    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100vh", fontFamily: "Noto Sans Thai, Inter, sans-serif", gap: 8 }}>
-      <div style={{ fontSize: 32 }}>🔒</div>
-      <div style={{ color: C.text, fontWeight: 600 }}>สำหรับ Admin เท่านั้น</div>
+    <div className="cp-center">
+      <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
+      <div style={{ fontWeight: 600, color: C.text }}>สำหรับ Admin เท่านั้น</div>
     </div>
   );
 
-  const activeUsers = users.filter(u => u.role === "SUBSCRIBER" && (!u.subscriptionEnds || new Date(u.subscriptionEnds) > new Date()));
   const pendingUsers = users.filter(u => u.role === "PENDING");
-  const activeCodes = codes.filter(c => c.isActive);
+  const TABS: [Tab, string][] = [["stats", "ภาพรวม"], ["users", "สมาชิก"], ["codes", "โค้ด"]];
 
   return (
-    <div style={{ fontFamily: "Noto Sans Thai, Inter, sans-serif", background: C.base, minHeight: "100vh", maxWidth: 430, margin: "0 auto" }}>
+    <div className="cp-page">
 
       {/* Header */}
-      <div style={{ background: C.text, padding: "16px 20px", position: "sticky", top: 0, zIndex: 10 }}>
-        <div style={{ color: "#fff", fontSize: 18, fontWeight: 700 }}>Admin Panel</div>
-        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginTop: 2 }}>Cooper Financial Butler</div>
+      <div className="cp-header">
+        <div className="cp-header-inner">
+          <div>
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>Cooper</div>
+            <div style={{ color: "#fff", fontSize: 18, fontWeight: 700, lineHeight: 1.2 }}>Admin Panel</div>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", background: "#fff", borderBottom: `1px solid ${C.border}`, position: "sticky", top: 56, zIndex: 9 }}>
-        {([["stats", "ภาพรวม"], ["users", `สมาชิก`], ["codes", "โค้ด"]] as [Tab, string][]).map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)}
-            style={{ flex: 1, padding: "12px 0", fontSize: 13, fontWeight: tab === key ? 600 : 400, color: tab === key ? C.text : C.sub, background: "none", border: "none", borderBottom: `2px solid ${tab === key ? C.text : "transparent"}`, cursor: "pointer", fontFamily: "inherit" }}>
+      <div className="cp-tabs">
+        {TABS.map(([key, label]) => (
+          <button key={key} className={`cp-tab${tab === key ? " active" : ""}`} onClick={() => setTab(key)}>
             {label}
           </button>
         ))}
       </div>
 
-      <div style={{ padding: 16 }}>
+      {/* Content */}
+      <div className="cp-content">
 
         {/* Stats */}
         {tab === "stats" && stats && (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+            <div className="cp-stats">
               {[
-                { label: "สมาชิก active", value: stats.active, color: C.income },
-                { label: "รอ approve", value: pendingUsers.length, color: C.accent },
-                { label: "user ทั้งหมด", value: stats.total, color: C.transfer },
-                { label: "รายรับ/เดือน", value: `฿${stats.estimatedRevenue.toLocaleString("th-TH")}`, color: C.income },
+                { label: "สมาชิก active",  value: stats.active,                                         color: C.income   },
+                { label: "รอ approve",      value: pendingUsers.length,                                  color: C.accent   },
+                { label: "user ทั้งหมด",   value: stats.total,                                          color: C.transfer },
+                { label: "รายรับ/เดือน",   value: `฿${stats.estimatedRevenue.toLocaleString("th-TH")}`, color: C.income   },
               ].map(item => (
-                <div key={item.label} style={{ background: "#fff", borderRadius: 12, padding: "14px", border: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>{item.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: item.color }}>{item.value}</div>
+                <div key={item.label} className="cp-stat">
+                  <div className="cp-stat-label-text">{item.label}</div>
+                  <div className="cp-stat-value" style={{ color: item.color, fontSize: 22 }}>{item.value}</div>
                 </div>
               ))}
             </div>
 
             {pendingUsers.length > 0 && (
-              <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-                <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 600, color: C.accent }}>
+              <div className="cp-card">
+                <div className="cp-card-header" style={{ color: C.accent }}>
                   รอ approve ({pendingUsers.length})
                 </div>
                 {pendingUsers.map(u => (
-                  <div key={u.id} style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
+                  <div key={u.id} className="cp-row">
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{u.displayName ?? "ไม่มีชื่อ"}</div>
-                      <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>{u.lineUserId}</div>
+                      <div style={{ fontSize: 11, color: C.sub, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.lineUserId}</div>
                     </div>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <input type="number" min={1} value={activateDays[u.lineUserId] ?? 30}
                         onChange={e => setActivateDays(d => ({ ...d, [u.lineUserId]: Number(e.target.value) }))}
                         style={{ width: 52, padding: "4px 6px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12, textAlign: "center", fontFamily: "inherit" }} />
-                      <button onClick={() => handleActivate(u.lineUserId, activateDays[u.lineUserId] ?? 30)} style={btnStyle(C.income)}>
+                      <button onClick={() => handleActivate(u.lineUserId, activateDays[u.lineUserId] ?? 30)} style={btn(C.income)}>
                         เปิด
                       </button>
                     </div>
@@ -187,27 +196,26 @@ export default function AdminPage() {
 
         {/* Users */}
         {tab === "users" && (
-          <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            {users.map((u, i) => {
+          <div className="cp-card">
+            {users.length === 0 && <div className="cp-empty"><span className="cp-empty-text">ยังไม่มีสมาชิก</span></div>}
+            {users.map(u => {
               const isActive = u.role === "SUBSCRIBER" && (!u.subscriptionEnds || new Date(u.subscriptionEnds) > new Date());
-              const isAdmin = u.role === "ADMIN";
-              const ends = u.subscriptionEnds ? new Date(u.subscriptionEnds).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }) : null;
+              const isAdmin  = u.role === "ADMIN";
+              const ends     = u.subscriptionEnds
+                ? new Date(u.subscriptionEnds).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })
+                : null;
               return (
-                <div key={u.id} style={{ padding: "12px 16px", borderBottom: i < users.length - 1 ? `1px solid ${C.border}` : "none", display: "flex", justifyContent: "space-between", alignItems: "center", background: isActive ? C.incomeBg : "transparent" }}>
-                  <div style={{ minWidth: 0, flex: 1, marginRight: 8 }}>
+                <div key={u.id} className="cp-row" style={{ background: isActive ? C.incomeBg : "transparent" }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {u.displayName ?? "ไม่มีชื่อ"}
                     </div>
                     <div style={{ fontSize: 11, color: C.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.lineUserId}</div>
                     {ends && <div style={{ fontSize: 11, color: isActive ? C.income : C.expense }}>ถึง {ends}</div>}
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                    {!isAdmin && !isActive && (
-                      <button onClick={() => handleActivate(u.lineUserId, 30)} style={btnStyle(C.income)}>เปิด</button>
-                    )}
-                    {!isAdmin && isActive && (
-                      <button onClick={() => handleSuspend(u.lineUserId)} style={btnStyle(C.expense)}>ระงับ</button>
-                    )}
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {!isAdmin && !isActive && <button onClick={() => handleActivate(u.lineUserId, 30)} style={btn(C.income)}>เปิด</button>}
+                    {!isAdmin &&  isActive && <button onClick={() => handleSuspend(u.lineUserId)}      style={btn(C.expense)}>ระงับ</button>}
                     {isAdmin && <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>ADMIN</span>}
                   </div>
                 </div>
@@ -219,9 +227,8 @@ export default function AdminPage() {
         {/* Codes */}
         {tab === "codes" && (
           <>
-            {/* สร้างโค้ดใหม่ */}
-            <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${C.border}`, padding: 16, marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 12 }}>สร้างโค้ดใหม่</div>
+            <div className="cp-card" style={{ padding: 16, marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>สร้างโค้ดใหม่</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <input value={newCode.code} onChange={e => setNewCode(s => ({ ...s, code: e.target.value.toUpperCase() }))}
                   placeholder="ชื่อโค้ด เช่น SUMMER50" style={inputStyle} />
@@ -238,37 +245,36 @@ export default function AdminPage() {
                       placeholder="ไม่จำกัด" style={inputStyle} />
                   </div>
                 </div>
-                <button onClick={handleCreateCode} style={{ ...btnStyle(), padding: "10px" }}>
+                <button onClick={handleCreateCode} style={{ ...btn(), padding: "10px", width: "100%" }}>
                   สร้างโค้ด
                 </button>
               </div>
             </div>
 
-            {/* รายการโค้ด */}
-            <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-              <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 600 }}>
-                โค้ดทั้งหมด ({codes.length})
-              </div>
-              {codes.length === 0 && <div style={{ padding: 24, textAlign: "center", color: C.sub, fontSize: 13 }}>ยังไม่มีโค้ด</div>}
-              {codes.map((c, i) => (
-                <div key={c.id} style={{ padding: "12px 16px", borderBottom: i < codes.length - 1 ? `1px solid ${C.border}` : "none", display: "flex", justifyContent: "space-between", alignItems: "center", background: c.isActive ? "transparent" : C.base, opacity: c.isActive ? 1 : 0.5 }}>
+            <div className="cp-card">
+              <div className="cp-card-header">โค้ดทั้งหมด ({codes.length})</div>
+              {codes.length === 0 && <div className="cp-empty"><span className="cp-empty-text">ยังไม่มีโค้ด</span></div>}
+              {codes.map(c => (
+                <div key={c.id} className="cp-row" style={{ opacity: c.isActive ? 1 : 0.45 }}>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: 0.5 }}>{c.code}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.5 }}>{c.code}</span>
                       <span style={{ background: C.incomeBg, color: C.income, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>-{c.discount}%</span>
                     </div>
                     <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>
                       ใช้แล้ว {c.usedCount}{c.usageLimit ? `/${c.usageLimit}` : ""} ครั้ง
                     </div>
                   </div>
-                  {c.isActive && (
-                    <button onClick={() => handleDeleteCode(c.code)} style={btnStyle(C.expense)}>ปิด</button>
-                  )}
+                  {c.isActive && <button onClick={() => handleDeleteCode(c.code)} style={btn(C.expense)}>ปิด</button>}
                 </div>
               ))}
             </div>
           </>
         )}
+
+        <div className="cp-footer">
+          <span className="cp-footer-text">🐾 Cooper Financial Butler</span>
+        </div>
       </div>
     </div>
   );
