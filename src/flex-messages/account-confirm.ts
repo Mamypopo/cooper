@@ -8,7 +8,7 @@ export function buildAccountConfirmFlex(params: {
 }): messagingApi.FlexContainer {
   const { name, balance, isNew } = params;
   const balanceStr = `฿${Number(balance).toLocaleString("th-TH")}`;
-  const action = isNew ? "เพิ่มบัญชีใหม่แล้วค่ะ" : "อัปเดตยอดแล้วค่ะ";
+  const action = isNew ? "เพิ่มบัญชีใหม่แล้วงับ" : "อัปเดตยอดแล้วงับ";
 
   return {
     type: "bubble",

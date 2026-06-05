@@ -2,12 +2,12 @@ import type { messagingApi } from "@line/bot-sdk";
 import type { RecentTransaction } from "@/services/queries/transactions";
 
 const TYPE_SIGN: Record<string, string> = {
-  INCOME: "+", EXPENSE: "-", TRANSFER: "", DEBT_LEND: "-", DEBT_REPAY: "+",
+  INCOME: "+", EXPENSE: "-", TRANSFER: "", DEBT_LEND: "-", DEBT_BORROW: "+", DEBT_REPAY: "+",
 };
 
 const TYPE_COLOR: Record<string, string> = {
   INCOME: "#7EA184", EXPENSE: "#C58B7E",
-  TRANSFER: "#6B8296", DEBT_LEND: "#9B8DB4", DEBT_REPAY: "#7EA184",
+  TRANSFER: "#6B8296", DEBT_LEND: "#9B8DB4", DEBT_BORROW: "#C58B7E", DEBT_REPAY: "#7EA184",
 };
 
 function formatDate(d: Date): string {
@@ -21,7 +21,7 @@ export function buildHistoryFlex(txs: RecentTransaction[]): messagingApi.FlexCon
       body: {
         type: "box", layout: "vertical", paddingAll: "18px",
         contents: [
-          { type: "text", text: "ยังไม่มีรายการค่ะ", weight: "bold", size: "md", color: "#2C2C2E" },
+          { type: "text", text: "ยังไม่มีรายการงับ", weight: "bold", size: "md", color: "#2C2C2E" },
           { type: "text", text: "ลองพิมพ์ 'กาแฟ 65' เพื่อเริ่มบันทึกได้เลยงับ 🐾", size: "sm", color: "#8E8E93", margin: "sm", wrap: true },
         ],
       },

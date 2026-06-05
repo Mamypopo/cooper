@@ -10,7 +10,7 @@ export function buildDebtSummaryFlex(data: DebtSummary): messagingApi.FlexContai
       body: {
         type: "box", layout: "vertical", paddingAll: "18px",
         contents: [
-          { type: "text", text: "ไม่มีหนี้ค้างชำระค่ะ", weight: "bold", size: "md", color: "#2C2C2E" },
+          { type: "text", text: "ไม่มีหนี้ค้างชำระงับ", weight: "bold", size: "md", color: "#2C2C2E" },
           { type: "text", text: "เยี่ยมมากเลยงับ Cooper ภูมิใจในตัวคุณมากเลย 🐾", size: "sm", color: "#8E8E93", margin: "sm", wrap: true },
         ],
       },
