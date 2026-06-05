@@ -137,16 +137,22 @@ export function buildHistoryFlex(txs: RecentTransaction[]): messagingApi.FlexCon
       contents: [
         {
           type: "box",
-          layout: "horizontal",
+          layout: "vertical",
           paddingTop: "16px",
-          paddingBottom: "12px",
+          paddingBottom: "0px",
           paddingStart: "16px",
           paddingEnd: "16px",
-          borderColor: "#E5E5EA",
-          borderWidth: "0px 0px 1px 0px",
           contents: [
-            { type: "text", text: "รายการล่าสุด", weight: "bold", size: "md", color: "#2C2C2E" },
-            { type: "text", text: `${txs.length} รายการ`, size: "xs", color: "#8E8E93", align: "end", gravity: "bottom" },
+            {
+              type: "box",
+              layout: "horizontal",
+              paddingBottom: "12px",
+              contents: [
+                { type: "text", text: "รายการล่าสุด", weight: "bold", size: "md", color: "#2C2C2E" },
+                { type: "text", text: `${txs.length} รายการ`, size: "xs", color: "#8E8E93", align: "end", gravity: "bottom" },
+              ],
+            },
+            { type: "separator", color: "#E5E5EA" },
           ],
         },
         {
