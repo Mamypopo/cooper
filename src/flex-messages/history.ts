@@ -144,7 +144,7 @@ export function buildHistoryFlex(txs: RecentTransaction[]): messagingApi.FlexCon
           backgroundColor: "#2C2C2E",
           contents: [
             { type: "text", text: "รายการล่าสุด", weight: "bold", size: "md", color: "#FFFFFF" },
-            { type: "text", text: `${txs.length} รายการ`, size: "xs", color: "rgba(255,255,255,0.5)", align: "end", gravity: "bottom" },
+            { type: "text", text: `${txs.length} รายการ`, size: "xs", color: "#FFFFFF80", align: "end", gravity: "bottom" },
           ],
         },
         {
