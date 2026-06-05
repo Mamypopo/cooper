@@ -167,7 +167,7 @@ export default function SubscribePage() {
           {/* QR */}
           <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginBottom: 16, textAlign: "center" }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 12 }}>สแกน PromptPay</div>
-            <img src={`/api/liff/qr?amount=${finalPrice(selectedPlan.basePrice)}`} alt="PromptPay QR" style={{ width: 200, height: 200, borderRadius: 8 }} />
+            <img src={`/api/liff/qr?amount=${finalPrice(selectedPlan.basePrice)}`} alt="PromptPay QR" style={{ width: 200, height: 200, borderRadius: 8, display: "block", margin: "0 auto" }} />
             <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginTop: 8 }}>{process.env.NEXT_PUBLIC_PROMPTPAY_NAME}</div>
             <div style={{ fontSize: 12, color: C.sub }}>{process.env.NEXT_PUBLIC_PROMPTPAY_NUMBER}</div>
           </div>
