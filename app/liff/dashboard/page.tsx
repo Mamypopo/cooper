@@ -61,6 +61,7 @@ export default function Dashboard() {
   const [historyFilter, setHistoryFilter] = useState("ALL");
   const [settings, setSettings]     = useState<UserSettings>({ monthlyBudget: null, alertDaysBefore: 3, enableSubAlert: true, enableDebtAlert: true });
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsSaved,  setSettingsSaved]  = useState(false);
   const lineUserIdRef  = useRef("");
   const chartRef       = useRef<HTMLCanvasElement>(null);
   const chartInstance  = useRef<unknown>(null);
@@ -80,6 +81,8 @@ export default function Dashboard() {
       await fetch(`/api/liff/settings?lineUserId=${lineUserIdRef.current}`, {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings),
       });
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 2000);
     } finally { setSettingsSaving(false); }
   }
 
@@ -456,9 +459,12 @@ export default function Dashboard() {
                         </div>
                       ))}
 
-                      <button onClick={handleSaveSettings} disabled={settingsSaving}
-                        className={`w-full py-3 rounded-xl border-0 text-white text-sm font-semibold transition-colors cursor-pointer font-[inherit] ${settingsSaving ? "bg-line cursor-not-allowed" : "bg-charcoal"}`}>
-                        {settingsSaving ? "กำลังบันทึก..." : "บันทึก"}
+                      <button onClick={handleSaveSettings} disabled={settingsSaving || settingsSaved}
+                        className={`w-full py-3 rounded-xl border-0 text-white text-sm font-semibold transition-colors cursor-pointer font-[inherit] ${
+                          settingsSaving ? "bg-line cursor-not-allowed" :
+                          settingsSaved  ? "bg-income cursor-default"   : "bg-charcoal"
+                        }`}>
+                        {settingsSaving ? "กำลังบันทึก..." : settingsSaved ? "บันทึกแล้ว ✓" : "บันทึก"}
                       </button>
                     </div>
                   </div>
