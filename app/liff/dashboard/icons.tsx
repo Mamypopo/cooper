@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   PiggyBank,
   Receipt,
+  Settings,
   Star,
   Tag,
   TrendingDown,
@@ -22,13 +23,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type TabKey = "overview" | "history" | "debts" | "bills";
+export type TabKey = "overview" | "history" | "debts" | "bills" | "settings";
 
 export const TAB_ICONS: Record<TabKey, LucideIcon> = {
   overview: LayoutDashboard,
   history: History,
   debts: HandCoins,
   bills: CalendarClock,
+  settings: Settings,
 };
 
 export const TX_ICONS: Record<string, LucideIcon> = {

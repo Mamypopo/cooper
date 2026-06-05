@@ -25,7 +25,7 @@ function formatDate(d: Date): string {
     " " + d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
 }
 
-export function buildHistoryFlex(txs: RecentTransaction[]): messagingApi.FlexContainer {
+export function buildHistoryFlex(txs: RecentTransaction[], hasMore = false): messagingApi.FlexContainer {
   if (txs.length === 0) {
     return {
       type: "bubble",
@@ -147,11 +147,19 @@ export function buildHistoryFlex(txs: RecentTransaction[]): messagingApi.FlexCon
     },
     footer: {
       type: "box",
-      layout: "horizontal",
+      layout: hasMore ? "vertical" : "horizontal",
       backgroundColor: "#F5F5F7",
       paddingAll: "10px",
+      spacing: "sm",
       contents: [
         { type: "text", text: "🐾  Cooper บันทึกให้ทุกรายการงับ", size: "xs", color: "#8E8E93" },
+        ...(hasMore ? [{
+          type: "button" as const,
+          action: { type: "message" as const, label: "ดูเพิ่มเติม", text: "ดูประวัติเพิ่ม" },
+          style: "secondary" as const,
+          height: "sm" as const,
+          color: "#2C2C2E",
+        }] : []),
       ],
     },
   };

@@ -7,7 +7,7 @@ interface AlertData {
   lineUserId: string;
   upcomingBills: { name: string; amount: number; daysLeft: number }[];
   lendingDebts: { personName: string; amount: number; daysAgo: number }[];
-  owingDebts: { personName: string; amount: number; daysAgo: number }[];
+  owingDebts: { personName: string; amount: number; daysAgo: number; dueDate: Date | null }[];
 }
 
 async function buildAlertData(): Promise<AlertData[]> {
@@ -39,14 +39,22 @@ async function buildAlertData(): Promise<AlertData[]> {
             .filter((s) => s.daysLeft <= alertDays)
         : [];
 
-      const toDebtItem = (d: typeof user.debts[0]) => ({
-        personName: d.personName,
-        amount: Number(d.originalAmt) - Number(d.paidAmt),
-        daysAgo: Math.floor((Date.now() - d.createdAt.getTime()) / 86400000),
-      });
+      const lendingDebts = enableDebt
+        ? user.debts.filter((d) => d.direction === "WE_LENT").map((d) => ({
+            personName: d.personName,
+            amount: Number(d.originalAmt) - Number(d.paidAmt),
+            daysAgo: Math.floor((Date.now() - d.createdAt.getTime()) / 86400000),
+          }))
+        : [];
 
-      const lendingDebts = enableDebt ? user.debts.filter((d) => d.direction === "WE_LENT").map(toDebtItem) : [];
-      const owingDebts   = enableDebt ? user.debts.filter((d) => d.direction === "WE_OWE").map(toDebtItem) : [];
+      const owingDebts = enableDebt
+        ? user.debts.filter((d) => d.direction === "WE_OWE").map((d) => ({
+            personName: d.personName,
+            amount: Number(d.originalAmt) - Number(d.paidAmt),
+            daysAgo: Math.floor((Date.now() - d.createdAt.getTime()) / 86400000),
+            dueDate: d.dueDate,
+          }))
+        : [];
 
       return { userId: user.id, lineUserId: user.lineUserId, upcomingBills, lendingDebts, owingDebts };
     })
@@ -63,7 +71,12 @@ async function writeAlertMessage(data: Omit<AlertData, "userId" | "lineUserId">)
     .join("\n");
 
   const owingLines = data.owingDebts
-    .map((d) => `- ${d.personName} ฿${d.amount.toLocaleString("th-TH")} (ค้างมา ${d.daysAgo} วัน)`)
+    .map((d) => {
+      const duePart = d.dueDate
+        ? ` — ครบกำหนด ${d.dueDate.toLocaleDateString("th-TH", { day: "numeric", month: "short" })}`
+        : ` (ค้างมา ${d.daysAgo} วัน)`;
+      return `- ${d.personName} ฿${d.amount.toLocaleString("th-TH")}${duePart}`;
+    })
     .join("\n");
 
   const context = [

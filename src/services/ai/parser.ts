@@ -4,7 +4,8 @@ import type { ParsedRecord } from "@/types/ai";
 const RECORD_KEYWORDS = /\d+|ยืม|คืน|รับ|จ่าย|ซื้อ|ขาย|โอน|income|expense/i;
 const BUDGET_KEYWORDS = /ซื้อได้ไหม|งบพอไหม|อยากได้|กิเลส|ควรซื้อ|พอไหม/i;
 const ACCOUNT_QUERY  = /ดูบัญชี|บัญชีฉัน|กระเป๋าเงิน|ยอดเงิน/i;
-const HISTORY_QUERY  = /ดูประวัติ|ประวัติ|รายการ|transaction/i;
+const HISTORY_QUERY      = /ดูประวัติ|ประวัติ|รายการ|transaction/i;
+const HISTORY_MORE_QUERY = /ดูประวัติเพิ่ม|ดูเพิ่ม|ประวัติเพิ่มเติม/i;
 const DEBT_QUERY     = /ดูหนี้|ใครค้าง|สรุปหนี้|รายการหนี้/i;
 const SUB_QUERY      = /ดูบิล|รอบบิล|subscription ทั้งหมด/i;
 
@@ -13,7 +14,7 @@ const BUDGET_SET_RE  = /(?:ตั้งงบ|งบเดือน(?:ละ|น
 const CANCEL_TX_RE   = /(?:ลบ|ยกเลิก|แก้|cancel)\s*รายการ\s*(?:ล่าสุด|ที่แล้ว|เมื่อกี้)?/i;
 const CLOSE_DEBT_RE  = /(?:ปิดหนี้|คืนครบ|จ่ายครบ|ชำระครบ)\s+(.+)|(.+?)\s+(?:คืนครบแล้ว|จ่ายครบแล้ว|ชำระแล้ว)/i;
 
-export type Intent = "RECORD" | "BUDGET_CHECK" | "QUERY_ACCOUNTS" | "QUERY_HISTORY" | "QUERY_DEBTS" | "QUERY_SUBS" | "UNKNOWN";
+export type Intent = "RECORD" | "BUDGET_CHECK" | "QUERY_ACCOUNTS" | "QUERY_HISTORY" | "QUERY_HISTORY_MORE" | "QUERY_DEBTS" | "QUERY_SUBS" | "UNKNOWN";
 
 export function parseTransferCommand(text: string): { amount: number; from: string; to: string } | null {
   const m = text.trim().match(TRANSFER_RE);
@@ -41,12 +42,13 @@ export function parseCloseDebtCommand(text: string): string | null {
 }
 
 export function detectIntent(text: string): Intent {
-  if (BUDGET_KEYWORDS.test(text)) return "BUDGET_CHECK";
-  if (ACCOUNT_QUERY.test(text))   return "QUERY_ACCOUNTS";
-  if (HISTORY_QUERY.test(text))   return "QUERY_HISTORY";
-  if (DEBT_QUERY.test(text))      return "QUERY_DEBTS";
-  if (SUB_QUERY.test(text))       return "QUERY_SUBS";
-  if (RECORD_KEYWORDS.test(text)) return "RECORD";
+  if (BUDGET_KEYWORDS.test(text))      return "BUDGET_CHECK";
+  if (ACCOUNT_QUERY.test(text))        return "QUERY_ACCOUNTS";
+  if (HISTORY_MORE_QUERY.test(text))   return "QUERY_HISTORY_MORE";
+  if (HISTORY_QUERY.test(text))        return "QUERY_HISTORY";
+  if (DEBT_QUERY.test(text))           return "QUERY_DEBTS";
+  if (SUB_QUERY.test(text))            return "QUERY_SUBS";
+  if (RECORD_KEYWORDS.test(text))      return "RECORD";
   return "UNKNOWN";
 }
 

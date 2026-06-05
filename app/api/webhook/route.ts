@@ -22,6 +22,7 @@ import { buildDebtSummaryFlex } from "@/flex-messages/debt-summary";
 import { buildTransferReceiptFlex } from "@/flex-messages/transfer-receipt";
 import { transferBetweenAccounts } from "@/services/transactions/transfer";
 import { cancelLatestTransaction } from "@/services/transactions/cancel";
+import { isRecordRateLimited } from "@/lib/rate-limit";
 import { closeDebt } from "@/services/debts/close";
 import { cancelSubscription, parseCancelSubCommand } from "@/services/subscriptions/manage";
 
@@ -155,7 +156,10 @@ async function processEvent(event: LineMessageEvent) {
       await handleQueryAccounts(replyToken, user.id);
       break;
     case "QUERY_HISTORY":
-      await handleQueryHistory(replyToken, user.id);
+      await handleQueryHistory(replyToken, user.id, 7);
+      break;
+    case "QUERY_HISTORY_MORE":
+      await handleQueryHistory(replyToken, user.id, 20);
       break;
     case "QUERY_DEBTS":
       await handleQueryDebts(replyToken, user.id);
@@ -194,9 +198,10 @@ async function handleQueryAccounts(replyToken: string, userId: string) {
   await replyFlex(replyToken, "สรุปยอดทุกกระเป๋างับ", flex);
 }
 
-async function handleQueryHistory(replyToken: string, userId: string) {
-  const txs = await getRecentTransactions(userId);
-  const flex = buildHistoryFlex(txs);
+async function handleQueryHistory(replyToken: string, userId: string, limit = 7) {
+  const txs = await getRecentTransactions(userId, limit);
+  const hasMore = txs.length === limit && limit === 7;
+  const flex = buildHistoryFlex(txs, hasMore);
   await replyFlex(replyToken, "รายการล่าสุดงับ", flex);
 }
 
@@ -320,6 +325,10 @@ async function handleBudgetCheck(replyToken: string, userId: string, text: strin
 }
 
 async function handleRecord(replyToken: string, userId: string, text: string) {
+  if (await isRecordRateLimited(userId)) {
+    await replyText(replyToken, "กรุณารอสักครู่งับ 🐾 Cooper เพิ่งบันทึกรายการไปงับ");
+    return;
+  }
   const parsed = await parseRecord(text);
   if (!parsed) {
     await replyText(replyToken, "ขอโทษงับ Cooper ไม่แน่ใจว่าจะบันทึกอะไร\nลองพิมพ์ใหม่ชัดๆ ได้เลยงับ เช่น 'ชาบู 499 กสิกร' 🐾");

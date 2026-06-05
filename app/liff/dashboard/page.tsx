@@ -69,18 +69,64 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 }
 
-type Tab = "overview" | "history" | "debts" | "bills";
-const TAB_LABELS: Record<Tab, string> = { overview: "ภาพรวม", history: "ประวัติ", debts: "หนี้สิน", bills: "บิล" };
+type Tab = "overview" | "history" | "debts" | "bills" | "settings";
+const TAB_LABELS: Record<Tab, string> = { overview: "ภาพรวม", history: "ประวัติ", debts: "หนี้สิน", bills: "บิล", settings: "ตั้งค่า" };
+
+interface UserSettings {
+  monthlyBudget: number | null;
+  alertDaysBefore: number;
+  enableSubAlert: boolean;
+  enableDebtAlert: boolean;
+}
 
 /* ─── Component ───────────────────────────────────────────────── */
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("overview");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<string>("ALL");
+  const [settings, setSettings] = useState<UserSettings>({
+    monthlyBudget: null, alertDaysBefore: 3, enableSubAlert: true, enableDebtAlert: true,
+  });
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const lineUserIdRef = useRef<string>("");
   const chartRef = useRef<HTMLCanvasElement>(null);
   const chartInstance = useRef<unknown>(null);
   const reduceMotion = useReducedMotion();
   const t = (duration = 0.28) => motionTransition(reduceMotion, duration);
+
+  async function fetchData(userId: string) {
+    const res = await fetch(`/api/liff/data?lineUserId=${userId}`);
+    if (!res.ok) throw new Error("ดึงข้อมูลไม่ได้งับ");
+    setData(await res.json());
+  }
+
+  async function handleSaveSettings() {
+    if (!lineUserIdRef.current || settingsSaving) return;
+    setSettingsSaving(true);
+    try {
+      await fetch(`/api/liff/settings?lineUserId=${lineUserIdRef.current}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
+
+  async function handleRefresh() {
+    if (!lineUserIdRef.current || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await fetchData(lineUserIdRef.current);
+    } catch {
+      // silent fail on refresh
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   useEffect(() => {
     async function init() {
@@ -90,9 +136,17 @@ export default function Dashboard() {
         await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_APP_ID! });
         if (!liff.isLoggedIn()) { liff.login(); return; }
         const profile = await liff.getProfile();
-        const res = await fetch(`/api/liff/data?lineUserId=${profile.userId}`);
-        if (!res.ok) throw new Error("ดึงข้อมูลไม่ได้งับ");
-        setData(await res.json());
+        lineUserIdRef.current = profile.userId;
+        // Pre-import Chart.js parallel กับ fetch data
+        const [data] = await Promise.all([
+          fetch(`/api/liff/data?lineUserId=${profile.userId}`).then(r => r.json()),
+          import("chart.js"),
+          fetch(`/api/liff/settings?lineUserId=${profile.userId}`)
+            .then(r => r.json())
+            .then(s => setSettings(s))
+            .catch(() => {}),
+        ]);
+        setData(data);
       } catch (e) {
         setError(e instanceof Error ? e.message : "เกิดข้อผิดพลาดงับ");
       }
@@ -241,14 +295,29 @@ export default function Dashboard() {
               <CpIcon icon={Award} size={12} color="rgba(255,255,255,0.5)" />
               เกรดสัปดาห์นี้
             </div>
-            <div className="cp-header-grade">{s.grade}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+              <div className="cp-header-grade">{s.grade}</div>
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                style={{
+                  background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8,
+                  padding: "4px 8px", cursor: isRefreshing ? "not-allowed" : "pointer",
+                  color: "#fff", fontSize: 16, lineHeight: 1,
+                  opacity: isRefreshing ? 0.5 : 1,
+                  transition: "opacity 0.2s",
+                }}
+              >
+                {isRefreshing ? "⏳" : "🔄"}
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>
 
       <div className="cp-shell">
         <nav className="cp-tabs">
-          {(["overview", "history", "debts", "bills"] as Tab[]).map((tabKey) => (
+          {(["overview", "history", "debts", "bills", "settings"] as Tab[]).map((tabKey) => (
             <motion.button
               key={tabKey}
               type="button"
@@ -270,7 +339,71 @@ export default function Dashboard() {
         </nav>
 
         <main className="cp-content">
+          {/* ── Overview — always mounted เพื่อ preserve canvas ── */}
+          <div style={{ display: tab === "overview" ? "block" : "none" }} className="cp-tab-panel">
+            <div className="cp-stats">
+              {[
+                { label: "รายรับสัปดาห์นี้", value: `+${fmt(s.totalIncome)}`, color: C.income, icon: TrendingUp },
+                { label: "รายจ่ายสัปดาห์นี้", value: `-${fmt(s.totalExpense)}`, color: C.expense, icon: TrendingDown },
+                { label: "อัตราออม", value: `${s.savingsRate}%`, color: C.transfer, icon: PiggyBank },
+                { label: "หมวดเยอะสุด", value: s.topCategory, color: C.accent, icon: Tag },
+              ].map((item) => (
+                <div key={item.label} className="cp-stat">
+                  <div className="cp-stat-label">
+                    <CpIcon icon={item.icon} size={14} color={C.sub} />
+                    <span className="cp-stat-label-text">{item.label}</span>
+                  </div>
+                  <div className="cp-stat-value" style={{ color: item.color }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="cp-overview-bottom">
+              <div className="cp-card">
+                <div className="cp-card-header">
+                  <CpIcon icon={Activity} size={16} color={C.income} />
+                  สมดุลการเงิน 6 มิติ
+                </div>
+                <div className="cp-chart-wrap">
+                  <canvas ref={chartRef} />
+                </div>
+              </div>
+
+              <div className="cp-card">
+                <div className="cp-card-header">
+                  <CpIcon icon={Wallet} size={16} color={C.transfer} />
+                  กระเป๋าเงิน
+                </div>
+                {data.accounts.map((a) => {
+                  const color = a.type === "WALLET" ? C.income : a.type === "SAVINGS" ? C.transfer : C.accent;
+                  const bg = a.type === "WALLET" ? C.incomeBg : a.type === "SAVINGS" ? C.transferBg : C.accentBg;
+                  const AccIcon = ACCOUNT_ICONS[a.type] ?? Wallet;
+                  return (
+                    <div key={a.name} className="cp-row">
+                      <div className="cp-row-body">
+                        <div className="cp-icon-badge" style={{ background: bg }}>
+                          <CpIcon icon={AccIcon} size={18} color={color} />
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                            {a.name}
+                            {a.isDefault && <CpIcon icon={Star} size={12} color={C.accent} strokeWidth={2} />}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.sub }}>{a.type}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color }}>
+                        {Number(a.balance) < 0 ? "-" : ""}฿{Math.abs(Number(a.balance)).toLocaleString("th-TH")}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           <AnimatePresence mode="wait">
+            {tab !== "overview" && (
             <motion.div
               key={tab}
               className="cp-tab-panel"
@@ -280,121 +413,72 @@ export default function Dashboard() {
               exit="exit"
               transition={t(0.22)}
             >
-              {tab === "overview" && (
-                <>
-                  <motion.div
-                    className="cp-stats"
-                    variants={staggerContainer}
-                    initial="hidden"
-                    animate="show"
-                  >
-                    {[
-                      { label: "รายรับสัปดาห์นี้", value: `+${fmt(s.totalIncome)}`, color: C.income, icon: TrendingUp },
-                      { label: "รายจ่ายสัปดาห์นี้", value: `-${fmt(s.totalExpense)}`, color: C.expense, icon: TrendingDown },
-                      { label: "อัตราออม", value: `${s.savingsRate}%`, color: C.transfer, icon: PiggyBank },
-                      { label: "หมวดเยอะสุด", value: s.topCategory, color: C.accent, icon: Tag },
-                    ].map((item) => (
-                      <motion.div key={item.label} className="cp-stat" variants={staggerItem} transition={t(0.2)}>
-                        <div className="cp-stat-label">
-                          <CpIcon icon={item.icon} size={14} color={C.sub} />
-                          <span className="cp-stat-label-text">{item.label}</span>
-                        </div>
-                        <div className="cp-stat-value" style={{ color: item.color }}>{item.value}</div>
-                      </motion.div>
-                    ))}
-                  </motion.div>
 
-                  <motion.div
-                    className="cp-overview-bottom"
-                    variants={staggerContainer}
-                    initial="hidden"
-                    animate="show"
-                  >
-                    <motion.div className="cp-card" variants={staggerItem} transition={t(0.25)}>
-                      <div className="cp-card-header">
-                        <CpIcon icon={Activity} size={16} color={C.income} />
-                        สมดุลการเงิน 6 มิติ
-                      </div>
-                      <div className="cp-chart-wrap">
-                        <canvas ref={chartRef} />
-                      </div>
-                    </motion.div>
-
-                    <motion.div className="cp-card" variants={staggerItem} transition={t(0.25)}>
-                      <div className="cp-card-header">
-                        <CpIcon icon={Wallet} size={16} color={C.transfer} />
-                        กระเป๋าเงิน
-                      </div>
-                      {data.accounts.map((a) => {
-                        const color = a.type === "WALLET" ? C.income : a.type === "SAVINGS" ? C.transfer : C.accent;
-                        const bg = a.type === "WALLET" ? C.incomeBg : a.type === "SAVINGS" ? C.transferBg : C.accentBg;
-                        const AccIcon = ACCOUNT_ICONS[a.type] ?? Wallet;
-                        return (
-                          <div key={a.name} className="cp-row">
-                            <div className="cp-row-body">
-                              <div className="cp-icon-badge" style={{ background: bg }}>
-                                <CpIcon icon={AccIcon} size={18} color={color} />
-                              </div>
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                                  {a.name}
-                                  {a.isDefault && <CpIcon icon={Star} size={12} color={C.accent} strokeWidth={2} />}
-                                </div>
-                                <div style={{ fontSize: 11, color: C.sub }}>{a.type}</div>
-                              </div>
-                            </div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color }}>
-                              {Number(a.balance) < 0 ? "-" : ""}฿{Math.abs(Number(a.balance)).toLocaleString("th-TH")}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </motion.div>
-                  </motion.div>
-                </>
-              )}
-
-              {tab === "history" && (
-                <motion.div
-                  className="cp-card"
-                  variants={staggerContainer}
-                  initial="hidden"
-                  animate="show"
-                >
-                  <div className="cp-card-header">
-                    <CpIcon icon={TAB_ICONS.history} size={16} color={C.text} />
-                    รายการล่าสุด
-                  </div>
-                  {data.transactions.length === 0 && (
-                    <div className="cp-empty">
-                      <CpIcon icon={Cat} size={28} color={C.sub} strokeWidth={1.5} />
-                      <span className="cp-empty-text">ยังไม่มีรายการงับ</span>
+              {tab === "history" && (() => {
+                const FILTERS = [
+                  { key: "ALL", label: "ทั้งหมด" },
+                  { key: "INCOME", label: "รายรับ" },
+                  { key: "EXPENSE", label: "รายจ่าย" },
+                  { key: "DEBT", label: "หนี้สิน" },
+                  { key: "TRANSFER", label: "โอน" },
+                ];
+                const filtered = data.transactions.filter((tx) => {
+                  if (historyFilter === "ALL") return true;
+                  if (historyFilter === "DEBT") return ["DEBT_LEND", "DEBT_BORROW", "DEBT_REPAY"].includes(tx.type);
+                  return tx.type === historyFilter;
+                });
+                return (
+                  <motion.div className="cp-card" variants={staggerContainer} initial="hidden" animate="show">
+                    <div className="cp-card-header">
+                      <CpIcon icon={TAB_ICONS.history} size={16} color={C.text} />
+                      รายการล่าสุด
                     </div>
-                  )}
-                  {data.transactions.map((tx, i) => {
-                    const TxIcon = TX_ICONS[tx.type] ?? Receipt;
-                    const txColor = TYPE_COLOR[tx.type] ?? C.text;
-                    return (
-                    <motion.div key={i} className="cp-row" variants={staggerItem} transition={t(0.18)}>
-                      <div className="cp-row-body">
-                        <div className="cp-icon-badge" style={{ background: TYPE_BG[tx.type] ?? C.base }}>
-                          <CpIcon icon={TxIcon} size={18} color={txColor} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {tx.note || tx.category}
+                    {/* Filter chips */}
+                    <div style={{ display: "flex", gap: 6, padding: "8px 16px", overflowX: "auto", borderBottom: `1px solid ${C.border}` }}>
+                      {FILTERS.map((f) => (
+                        <button key={f.key} onClick={() => setHistoryFilter(f.key)}
+                          style={{
+                            flexShrink: 0, padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 500,
+                            cursor: "pointer", border: "none", fontFamily: "inherit",
+                            background: historyFilter === f.key ? C.text : C.base,
+                            color: historyFilter === f.key ? "#fff" : C.sub,
+                            transition: "all 0.15s",
+                          }}>
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                    {filtered.length === 0 && (
+                      <div className="cp-empty">
+                        <CpIcon icon={Cat} size={28} color={C.sub} strokeWidth={1.5} />
+                        <span className="cp-empty-text">ไม่มีรายการงับ</span>
+                      </div>
+                    )}
+                    {filtered.map((tx, i) => {
+                      const TxIcon = TX_ICONS[tx.type] ?? Receipt;
+                      const txColor = TYPE_COLOR[tx.type] ?? C.text;
+                      return (
+                        <motion.div key={i} className="cp-row" variants={staggerItem} transition={t(0.18)}>
+                          <div className="cp-row-body">
+                            <div className="cp-icon-badge" style={{ background: TYPE_BG[tx.type] ?? C.base }}>
+                              <CpIcon icon={TxIcon} size={18} color={txColor} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {tx.note || tx.category}
+                              </div>
+                              <div style={{ fontSize: 11, color: C.sub }}>{tx.category} · {tx.accountName} · {fmtDate(tx.recordedAt)}</div>
+                            </div>
                           </div>
-                          <div style={{ fontSize: 11, color: C.sub }}>{tx.category} · {tx.accountName} · {fmtDate(tx.recordedAt)}</div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: txColor, flexShrink: 0 }}>
-                        {TYPE_SIGN[tx.type] ?? ""}฿{tx.amount.toLocaleString("th-TH")}
-                      </div>
-                    </motion.div>
-                    );
-                  })}
-                </motion.div>
-              )}
+                          <div style={{ fontSize: 13, fontWeight: 600, color: txColor, flexShrink: 0 }}>
+                            {TYPE_SIGN[tx.type] ?? ""}฿{tx.amount.toLocaleString("th-TH")}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </motion.div>
+                );
+              })()}
 
               {tab === "debts" && (
                 <motion.div
@@ -486,7 +570,89 @@ export default function Dashboard() {
                   ))}
                 </motion.div>
               )}
+
+              {tab === "settings" && (
+                <div className="cp-card">
+                  <div className="cp-card-header">
+                    <CpIcon icon={TAB_ICONS.settings} size={16} color={C.text} />
+                    ตั้งค่า
+                  </div>
+                  <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+                    {/* งบรายเดือน */}
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>งบรายเดือน</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, color: C.sub }}>฿</span>
+                        <input
+                          type="number"
+                          value={settings.monthlyBudget ?? ""}
+                          onChange={e => setSettings(s => ({ ...s, monthlyBudget: e.target.value ? Number(e.target.value) : null }))}
+                          placeholder="ยังไม่ได้ตั้ง"
+                          style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, fontFamily: "inherit", outline: "none" }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* แจ้งเตือนล่วงหน้า */}
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>แจ้งเตือนบิลล่วงหน้า</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input
+                          type="number"
+                          min={1} max={30}
+                          value={settings.alertDaysBefore}
+                          onChange={e => setSettings(s => ({ ...s, alertDaysBefore: Math.max(1, Math.min(30, Number(e.target.value))) }))}
+                          style={{ width: 64, padding: "8px 12px", borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, fontFamily: "inherit", outline: "none", textAlign: "center" }}
+                        />
+                        <span style={{ fontSize: 13, color: C.sub }}>วันก่อนถึงกำหนด</span>
+                      </div>
+                    </div>
+
+                    {/* Toggles */}
+                    {[
+                      { key: "enableSubAlert" as const, label: "แจ้งเตือนบิลรายเดือน" },
+                      { key: "enableDebtAlert" as const, label: "แจ้งเตือนหนี้ค้างชำระ" },
+                    ].map(({ key, label }) => (
+                      <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 13, color: C.text }}>{label}</span>
+                        <button
+                          onClick={() => setSettings(s => ({ ...s, [key]: !s[key] }))}
+                          style={{
+                            width: 44, height: 26, borderRadius: 13, border: "none", cursor: "pointer",
+                            background: settings[key] ? C.income : C.border,
+                            position: "relative", transition: "background 0.2s",
+                          }}
+                        >
+                          <span style={{
+                            position: "absolute", top: 3,
+                            left: settings[key] ? 21 : 3,
+                            width: 20, height: 20, borderRadius: "50%",
+                            background: "#fff", transition: "left 0.2s",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                          }} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Save */}
+                    <button
+                      onClick={handleSaveSettings}
+                      disabled={settingsSaving}
+                      style={{
+                        width: "100%", padding: "12px", borderRadius: 12, border: "none",
+                        background: settingsSaving ? C.border : C.text, color: "#fff",
+                        fontSize: 14, fontWeight: 600, cursor: settingsSaving ? "not-allowed" : "pointer",
+                        fontFamily: "inherit", transition: "background 0.2s",
+                      }}
+                    >
+                      {settingsSaving ? "กำลังบันทึก..." : "บันทึก"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
+            )}
           </AnimatePresence>
 
           <motion.div
