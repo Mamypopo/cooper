@@ -47,6 +47,34 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+const HELP_MESSAGE = `🐾 Cooper ช่วยได้แบบนี้งับ
+
+💰 บันทึกรายการ
+• "กาแฟ 65 กสิกร" → รายจ่าย
+• "รับเงินเดือน 25000" → รายรับ
+• "โอน 5000 กสิกร ไป ออมทรัพย์" → โอน
+
+🤝 หนี้สิน
+• "บอยยืมค่าข้าว 150" → บันทึกให้ยืม
+• "บอยคืน 150" → บันทึกรับคืน
+• "ปิดหนี้บอย" → ปิดหนี้ครบ
+
+📋 ดูข้อมูล
+• "ดูบัญชี" → ยอดทุกกระเป๋า
+• "ดูประวัติ" → รายการล่าสุด
+• "ดูหนี้" → สรุปหนี้สิน
+• "ดูบิล" → รอบบิลประจำ
+
+⚙️ ตั้งค่า
+• "เพิ่มบัญชี กสิกร 12000" → สร้างกระเป๋า
+• "บิล Netflix 299 วันที่ 15" → เพิ่มบิล
+• "ยกเลิกบิล Netflix" → ลบบิล
+• "ตั้งงบ 15000" → งบรายเดือน
+• "ลบรายการล่าสุด" → ยกเลิกรายการล่าสุด
+
+🧐 ถามงบ
+• "ซื้อ AirPods ได้ไหม" → Cooper วิเคราะห์ให้`;
+
 async function processEvent(event: LineMessageEvent) {
   const message = event.message as LineTextMessage;
   const replyToken = event.replyToken;
@@ -138,11 +166,15 @@ async function processEvent(event: LineMessageEvent) {
     case "QUERY_SUBS":
       await handleQuerySubs(replyToken, user.id);
       break;
+    case "UNKNOWN":
     default:
-      await replyText(
-        replyToken,
-        "สวัสดีงับ 🐾 Cooper พร้อมช่วยเสมองับ\n\nพิมพ์ได้เลยงับ เช่น\n• 'กาแฟ 65 กสิกร' → บันทึกรายจ่าย\n• 'เพิ่มบัญชี กสิกร 12000' → ตั้งค่ากระเป๋าเงิน\n• 'บอยยืมค่าข้าว 150' → บันทึกการยืม\n• 'ดูบัญชี' → ดูยอดทุกกระเป๋า\n• 'ดูประวัติ' → รายการล่าสุด\n• 'ดูหนี้' → สรุปหนี้สิน"
-      );
+      if (/ช่วยเหลือ|help|คำสั่ง|ทำอะไรได้/i.test(text)) {
+        await replyText(replyToken, HELP_MESSAGE);
+      } else if (/dashboard|แดชบอร์ด|เปิด dashboard|ดู dashboard/i.test(text)) {
+        await replyText(replyToken, `เปิด Dashboard ได้เลยงับ 🐾\n\nhttps://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_APP_ID}`);
+      } else {
+        await replyText(replyToken, `สวัสดีงับ 🐾 ไม่แน่ใจว่าหมายถึงอะไร\nพิมพ์ "ช่วยเหลือ" เพื่อดูคำสั่งทั้งหมดได้เลยนะงับ`);
+      }
   }
 }
 

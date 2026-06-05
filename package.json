@@ -7,7 +7,8 @@
     "build": "next build",
     "postinstall": "prisma generate",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "setup:richmenu": "npx tsx scripts/setup-rich-menu.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
