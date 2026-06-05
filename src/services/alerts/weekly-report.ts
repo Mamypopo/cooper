@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { anthropic, SYSTEM_PROMPT } from "@/lib/claude";
+import { anthropic, BUDGET_REPORT_PROMPT } from "@/lib/claude";
 import { pushText } from "@/lib/line";
 import { calcWeeklyStats } from "@/services/stats/financial-score";
 
@@ -23,7 +23,7 @@ async function writeReportMessage(stats: Awaited<ReturnType<typeof calcWeeklySta
     system: [
       {
         type: "text",
-        text: SYSTEM_PROMPT,
+        text: BUDGET_REPORT_PROMPT,
         cache_control: { type: "ephemeral" },
       },
     ],

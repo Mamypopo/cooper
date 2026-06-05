@@ -326,7 +326,7 @@ async function handleRecord(replyToken: string, userId: string, text: string) {
     return;
   }
 
-  const isDebt = parsed.type === "DEBT_LEND" || parsed.type === "DEBT_REPAY";
+  const isDebt = parsed.type === "DEBT_LEND" || parsed.type === "DEBT_BORROW" || parsed.type === "DEBT_REPAY";
   const result = isDebt
     ? await recordDebt(userId, parsed)
     : await recordTransaction(userId, parsed);

@@ -54,14 +54,14 @@ const C = {
 
 const TYPE_COLOR: Record<string, string> = {
   INCOME: C.income, EXPENSE: C.expense, TRANSFER: C.transfer,
-  DEBT_LEND: C.accent, DEBT_REPAY: C.income,
+  DEBT_LEND: C.accent, DEBT_BORROW: C.expense, DEBT_REPAY: C.income,
 };
 const TYPE_SIGN: Record<string, string> = {
-  INCOME: "+", EXPENSE: "-", TRANSFER: "", DEBT_LEND: "-", DEBT_REPAY: "+",
+  INCOME: "+", EXPENSE: "-", TRANSFER: "", DEBT_LEND: "-", DEBT_BORROW: "+", DEBT_REPAY: "+",
 };
 const TYPE_BG: Record<string, string> = {
   INCOME: C.incomeBg, EXPENSE: C.expenseBg, TRANSFER: C.transferBg,
-  DEBT_LEND: C.accentBg, DEBT_REPAY: C.incomeBg,
+  DEBT_LEND: C.accentBg, DEBT_BORROW: C.expenseBg, DEBT_REPAY: C.incomeBg,
 };
 
 function fmt(n: number) { return `฿${Math.abs(n).toLocaleString("th-TH")}` }

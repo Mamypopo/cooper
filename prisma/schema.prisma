@@ -90,6 +90,7 @@ enum TransactionType {
   EXPENSE
   TRANSFER
   DEBT_LEND
+  DEBT_BORROW
   DEBT_REPAY
 }
 

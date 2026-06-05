@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { anthropic, SYSTEM_PROMPT } from "@/lib/claude";
+import { anthropic, BUDGET_REPORT_PROMPT } from "@/lib/claude";
 import { Prisma } from "@prisma/client";
 
 async function buildBudgetContext(userId: string): Promise<string> {
@@ -82,7 +82,7 @@ export async function runBudgetCheck(userId: string, userMessage: string): Promi
     system: [
       {
         type: "text",
-        text: SYSTEM_PROMPT,
+        text: BUDGET_REPORT_PROMPT,
         cache_control: { type: "ephemeral" },
       },
     ],

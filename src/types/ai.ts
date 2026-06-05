@@ -3,6 +3,7 @@ export type TransactionType =
   | "EXPENSE"
   | "TRANSFER"
   | "DEBT_LEND"
+  | "DEBT_BORROW"
   | "DEBT_REPAY";
 
 export type Confidence = "HIGH" | "MEDIUM" | "LOW";

@@ -3,27 +3,30 @@ import type { TransactionType } from "@/types/ai";
 import { Prisma } from "@prisma/client";
 
 const TYPE_LABEL: Record<TransactionType, string> = {
-  INCOME:     "INCOME",
-  EXPENSE:    "EXPENSE",
-  TRANSFER:   "TRANSFER",
-  DEBT_LEND:  "LEND",
-  DEBT_REPAY: "REPAY",
+  INCOME:      "INCOME",
+  EXPENSE:     "EXPENSE",
+  TRANSFER:    "TRANSFER",
+  DEBT_LEND:   "LEND",
+  DEBT_BORROW: "BORROW",
+  DEBT_REPAY:  "REPAY",
 };
 
 const TYPE_COLOR: Record<TransactionType, { text: string; bg: string }> = {
-  INCOME:     { text: "#7EA184", bg: "#EAF0EB" },
-  EXPENSE:    { text: "#C58B7E", bg: "#F7ECE9" },
-  TRANSFER:   { text: "#6B8296", bg: "#EAF0F6" },
-  DEBT_LEND:  { text: "#9B8DB4", bg: "#F0EDF7" },
-  DEBT_REPAY: { text: "#7EA184", bg: "#EAF0EB" },
+  INCOME:      { text: "#7EA184", bg: "#EAF0EB" },
+  EXPENSE:     { text: "#C58B7E", bg: "#F7ECE9" },
+  TRANSFER:    { text: "#6B8296", bg: "#EAF0F6" },
+  DEBT_LEND:   { text: "#9B8DB4", bg: "#F0EDF7" },
+  DEBT_BORROW: { text: "#C58B7E", bg: "#F7ECE9" },
+  DEBT_REPAY:  { text: "#7EA184", bg: "#EAF0EB" },
 };
 
 const SIGN: Record<TransactionType, string> = {
-  INCOME:     "+",
-  EXPENSE:    "-",
-  TRANSFER:   "",
-  DEBT_LEND:  "-",
-  DEBT_REPAY: "+",
+  INCOME:      "+",
+  EXPENSE:     "-",
+  TRANSFER:    "",
+  DEBT_LEND:   "-",
+  DEBT_BORROW: "+",
+  DEBT_REPAY:  "+",
 };
 
 function formatBalance(bal: Prisma.Decimal): string {

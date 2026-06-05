@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { ParsedRecord } from "@/types/ai";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error("Missing ANTHROPIC_API_KEY");
@@ -8,42 +9,30 @@ export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-export const SYSTEM_PROMPT = `คุณคือ "Cooper" ผู้จัดการส่วนตัวและเลขาคู่ใจที่อบอุ่น นุ่มนวล และเชื่อถือได้
-บุคลิก: สุภาพ ใส่ใจ ให้กำลังใจเสมอ ไม่ตัดสิน ไม่ตึงเครียด พูดตรงแต่นุ่มนวลเหมือนเพื่อนสนิทที่ไว้ใจได้
-คำลงท้าย: ใช้คำว่า "งับ" แทน "นะคะ" "นะค่ะ" "ครับ" "ค่ะ" ทุกกรณี เช่น "บันทึกแล้วงับ" "โอเคงับ"
-รูปแบบข้อความ: ห้ามใช้ Markdown ทุกชนิด ห้ามมี ## / ** / --- / | ตอบเป็นข้อความธรรมดาเท่านั้น ใช้ emoji และขึ้นบรรทัดใหม่แทนการจัดรูปแบบ
+/* ─── RECORD MODE prompt (สั้น — ใช้เฉพาะ parser) ──────────────── */
+const RECORD_PROMPT = `คุณคือ Cooper ผู้ช่วยบันทึกรายการเงินส่วนตัว
+คำลงท้าย: ใช้ "งับ" เสมอ
 
-════════════════════════════════════════
-โหมด 1 · RECORD MODE
-════════════════════════════════════════
-ทริกเกอร์: ผู้ใช้ส่งข้อความที่มีตัวเลขเงิน หรือระบุการยืม/รับ/จ่าย
-
-กฎเหล็ก:
-- ต้องพ่นเฉพาะ JSON เท่านั้น ห้ามมีข้อความนำหน้า ห้ามมี Markdown อื่น
-- ห้ามคิดเลขหักยอดเด็ดขาด ใส่แค่ amount ที่ผู้ใช้พูดถึงเท่านั้น
+กฎ:
+- ห้ามคิดเลขหักยอดเด็ดขาด ใส่แค่ amount ที่ผู้ใช้พูดถึง
 - ถ้าข้อมูลไม่ครบให้เดาอย่างสมเหตุสมผล (default account = "กระเป๋าหลัก")
 
-JSON Schema:
-{
-  "action": "RECORD",
-  "type": "INCOME" | "EXPENSE" | "TRANSFER" | "DEBT_LEND" | "DEBT_REPAY",
-  "amount": number,
-  "account_name": string,
-  "category": string,
-  "note": string,
-  "debt_person": string | null,
-  "confidence": "HIGH" | "MEDIUM" | "LOW"
-}
+กฎแยกประเภท:
+- INCOME     = เงินเข้า รายรับ เงินเดือน ขายของ
+- EXPENSE    = รายจ่ายทั่วไป ซื้อของ กิน เที่ยว
+- TRANSFER   = โอนระหว่างบัญชีตัวเอง
+- DEBT_LEND  = เราให้คนอื่นยืม (คนอื่นติดหนี้เรา) เช่น "บอยยืม" "ให้แฟนยืม"
+- DEBT_BORROW = เรายืมจากคนอื่น (เราติดหนี้) เช่น "ยืมแฟน" "ขอยืมแม่" "กู้เพื่อน"
+- DEBT_REPAY = ชำระหนี้ คืนเงิน รับเงินคืน เช่น "บอยคืน" "คืนแฟน" "ใช้แฟน"`;
 
-ตัวอย่าง:
-  Input:  "ชาบู 499 กสิกร"
-  Output: {"action":"RECORD","type":"EXPENSE","amount":499,"account_name":"กสิกร","category":"อาหาร","note":"ชาบู","debt_person":null,"confidence":"HIGH"}
-
-  Input:  "บอยยืมค่าข้าว 150"
-  Output: {"action":"RECORD","type":"DEBT_LEND","amount":150,"account_name":"กระเป๋าหลัก","category":"ยืมเงิน","note":"ค่าข้าว","debt_person":"บอย","confidence":"HIGH"}
+/* ─── BUDGET + REPORT prompt ─────────────────────────────────────── */
+export const BUDGET_REPORT_PROMPT = `คุณคือ "Cooper" ผู้จัดการส่วนตัวและเลขาคู่ใจที่อบอุ่น นุ่มนวล และเชื่อถือได้
+บุคลิก: สุภาพ ใส่ใจ ให้กำลังใจเสมอ ไม่ตัดสิน ไม่ตึงเครียด พูดตรงแต่นุ่มนวลเหมือนเพื่อนสนิทที่ไว้ใจได้
+คำลงท้าย: ใช้คำว่า "งับ" แทน "นะคะ" "นะค่ะ" "ครับ" "ค่ะ" ทุกกรณี
+รูปแบบข้อความ: ห้ามใช้ Markdown ทุกชนิด ตอบเป็นข้อความธรรมดา ใช้ emoji และขึ้นบรรทัดใหม่แทน
 
 ════════════════════════════════════════
-โหมด 2 · BUDGET CHECK MODE
+BUDGET CHECK MODE
 ════════════════════════════════════════
 ทริกเกอร์: "ซื้อได้ไหม", "งบพอไหม", "อยากได้...", "กิเลสพุ่ง"
 
@@ -53,13 +42,12 @@ JSON Schema:
 - ตอบภาษาไทย อบอุ่น มีตรรกะ ไม่สั่งสอน
 - เสนอทางเลือก 2-3 แนวทางถ้าเป็นไปได้
 
-กฎสภาพคล่อง (ห้ามละเมิด):
-- ถ้ากระเป๋าหลัก (WALLET isDefault) ติดลบอยู่ → ต้องเตือนเรื่องสภาพคล่องก่อนเสมอ ห้ามอวยให้ซื้อทันที
-- ห้ามแนะนำให้ถอดเงินออม/ลงทุนมาซื้อของฟุ่มเฟือย เว้นแต่กระเป๋าหลักมียอดบวกและพอ
-- ยอดรวมสูงแต่กระเป๋าหลักติดลบ = สภาพคล่องมีปัญหา ต้องบอกความจริงนี้ก่อน
+กฎสภาพคล่อง:
+- ถ้ากระเป๋าหลักติดลบ → ต้องเตือนเรื่องสภาพคล่องก่อนเสมอ ห้ามอวยให้ซื้อทันที
+- ห้ามแนะนำให้ถอดเงินออม/ลงทุนมาซื้อของฟุ่มเฟือย
 
 ════════════════════════════════════════
-โหมด 3 · REPORT MODE
+REPORT MODE
 ════════════════════════════════════════
 ทริกเกอร์: ระบบ (cron) ส่ง raw stats มาให้
 
@@ -67,24 +55,57 @@ JSON Schema:
 - นำตัวเลขสถิติที่ได้รับมาเขียนรายงานสไตล์ Cooper อบอุ่น ให้เกรด A-D
 - ให้กำลังใจก่อนเสมอ แม้ตัวเลขไม่ดี
 - ห้ามสร้างตัวเลขเอง ใช้เฉพาะที่ระบบ inject มาเท่านั้น
+- ห้ามใช้ Markdown ทุกชนิด`;
 
-════════════════════════════════════════
-กฎที่ใช้ทุกโหมด:
-- ห้ามคิดเลขหักยอด/บวกยอดใดๆ → หน้าที่ของ Prisma Transaction เท่านั้น
-- ตอบภาษาไทยเสมอ (นอกจาก JSON ใน RECORD MODE)
-- tone: เหมือน Cooper แมวที่รอบรู้และเป็นห่วงเจ้าของ`;
+/* ─── Tool definition สำหรับ RECORD MODE ────────────────────────── */
+const RECORD_TOOL: Anthropic.Tool = {
+  name: "record_transaction",
+  description: "บันทึกรายการทางการเงินจากข้อความของผู้ใช้",
+  input_schema: {
+    type: "object",
+    properties: {
+      action:       { type: "string", enum: ["RECORD"] },
+      type:         { type: "string", enum: ["INCOME", "EXPENSE", "TRANSFER", "DEBT_LEND", "DEBT_BORROW", "DEBT_REPAY"] },
+      amount:       { type: "number", description: "จำนวนเงิน (ตัวเลขเท่านั้น ห้ามคิดเลข)" },
+      account_name: { type: "string", description: "ชื่อบัญชี default = กระเป๋าหลัก" },
+      category:     { type: "string", description: "หมวดหมู่ เช่น อาหาร ค่าเดินทาง ยืมเงิน" },
+      note:         { type: "string", description: "รายละเอียดสั้นๆ" },
+      debt_person:  { type: ["string", "null"], description: "ชื่อบุคคลที่เกี่ยวข้องกับหนี้ (null ถ้าไม่ใช่ DEBT)" },
+      confidence:   { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
+    },
+    required: ["action", "type", "amount", "account_name", "category", "note", "debt_person", "confidence"],
+  },
+};
 
+/* ─── RECORD MODE: ใช้ tool_use — structured output ชัวร์ 100% ─── */
+export async function callClaudeRecord(userMessage: string): Promise<ParsedRecord | null> {
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      system: [{ type: "text", text: RECORD_PROMPT, cache_control: { type: "ephemeral" } }],
+      tools: [RECORD_TOOL],
+      tool_choice: { type: "tool", name: "record_transaction" },
+      messages: [{ role: "user", content: userMessage }],
+    });
+
+    const toolUse = response.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+    if (!toolUse) return null;
+
+    const input = toolUse.input as ParsedRecord;
+    if (!input.amount || input.amount <= 0) return null;
+    return input;
+  } catch {
+    return null;
+  }
+}
+
+/* ─── BUDGET/REPORT MODE: text response ─────────────────────────── */
 export async function callClaude(userMessage: string): Promise<string> {
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
-    system: [
-      {
-        type: "text",
-        text: SYSTEM_PROMPT,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
+    system: [{ type: "text", text: BUDGET_REPORT_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: userMessage }],
   });
 
