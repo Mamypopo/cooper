@@ -208,7 +208,7 @@ export default function Dashboard() {
               <div className="text-white text-[clamp(22px,5vw,28px)] font-extrabold">{s.grade}</div>
               <button onClick={handleRefresh} disabled={isRefreshing}
                 className={`bg-white/10 border-0 rounded-lg p-1 px-2 text-white cursor-pointer transition-opacity ${isRefreshing ? "opacity-50 cursor-not-allowed" : ""}`}>
-                <CpIcon icon={isRefreshing ? Loader2 : RefreshCw} size={16} color="#fff" />
+                <CpIcon icon={isRefreshing ? Loader2 : RefreshCw} size={16} color="#fff" className={isRefreshing ? "animate-spin" : undefined} />
               </button>
             </div>
           </div>
