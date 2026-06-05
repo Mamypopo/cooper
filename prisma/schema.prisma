@@ -126,6 +126,19 @@ enum DebtDir {
   WE_OWE
 }
 
+model DiscountCode {
+  id         String    @id @default(cuid())
+  code       String    @unique
+  discount   Int
+  usageLimit Int?
+  usedCount  Int       @default(0)
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+
+  @@index([code, isActive])
+}
+
 model Subscription {
   id            String    @id @default(cuid())
   userId        String

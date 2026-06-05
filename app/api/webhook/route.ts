@@ -126,6 +126,40 @@ async function processEvent(event: LineMessageEvent) {
       await replyText(replyToken, `✅ ระงับสิทธิ์ ${result.displayName ?? suspendMatch[1]} แล้วงับ`);
       return;
     }
+    // สร้างโค้ดส่วนลด: "สร้างโค้ด SUMMER50 50" หรือ "สร้างโค้ด FRIEND20 20 10" (จำกัด 10 uses)
+    const createCodeMatch = text.match(/^สร้างโค้ด\s+(\S+)\s+(\d+)(?:\s+(\d+))?/);
+    if (createCodeMatch) {
+      const code = createCodeMatch[1].toUpperCase();
+      const discount = Math.min(100, parseInt(createCodeMatch[2]));
+      const usageLimit = createCodeMatch[3] ? parseInt(createCodeMatch[3]) : null;
+      await prisma.discountCode.upsert({
+        where: { code },
+        update: { discount, usageLimit, isActive: true, usedCount: 0 },
+        create: { code, discount, usageLimit },
+      });
+      const limitText = usageLimit ? ` จำกัด ${usageLimit} ครั้ง` : " ไม่จำกัดครั้ง";
+      await replyText(replyToken, `✅ สร้างโค้ด ${code} ลด ${discount}%${limitText} แล้วงับ`);
+      return;
+    }
+
+    // ลบโค้ด: "ลบโค้ด SUMMER50"
+    const deleteCodeMatch = text.match(/^ลบโค้ด\s+(\S+)/);
+    if (deleteCodeMatch) {
+      const code = deleteCodeMatch[1].toUpperCase();
+      await prisma.discountCode.updateMany({ where: { code }, data: { isActive: false } });
+      await replyText(replyToken, `✅ ปิดโค้ด ${code} แล้วงับ`);
+      return;
+    }
+
+    // ดูโค้ดทั้งหมด
+    if (/^ดูโค้ด$|^รายการโค้ด$/.test(text.trim())) {
+      const codes = await prisma.discountCode.findMany({ where: { isActive: true }, orderBy: { createdAt: "desc" } });
+      if (!codes.length) { await replyText(replyToken, "ไม่มีโค้ดส่วนลดที่ใช้งานได้งับ"); return; }
+      const lines = codes.map((c) => `• ${c.code} ลด ${c.discount}% (ใช้แล้ว ${c.usedCount}${c.usageLimit ? `/${c.usageLimit}` : ""})`);
+      await replyText(replyToken, `โค้ดส่วนลดทั้งหมดงับ\n\n${lines.join("\n")}`);
+      return;
+    }
+
     if (/^สมาชิก$|^รายชื่อสมาชิก$/.test(text.trim())) {
       const subs = await listSubscribers();
       const lines = subs.map((s) => {
