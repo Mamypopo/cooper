@@ -13,5 +13,10 @@ export async function GET(req: NextRequest) {
   if (discount.expiresAt && discount.expiresAt < new Date()) return NextResponse.json({ valid: false });
   if (discount.usageLimit !== null && discount.usedCount >= discount.usageLimit) return NextResponse.json({ valid: false });
 
+  await prisma.discountCode.update({
+    where: { id: discount.id },
+    data: { usedCount: { increment: 1 } },
+  });
+
   return NextResponse.json({ valid: true, discount: discount.discount, code: discount.code });
 }

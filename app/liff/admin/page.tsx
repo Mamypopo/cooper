@@ -37,7 +37,7 @@ export default function AdminPage() {
     async function init() {
       try {
         const liff = (await import("@line/liff")).default;
-        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_APP_ID! });
+        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ADMIN_ID! });
         if (!liff.isLoggedIn()) { liff.login(); return; }
         const accessToken = liff.getAccessToken();
         if (!accessToken) { setAuthorized(false); return; }

@@ -30,7 +30,7 @@ export default function SubscribePage() {
     async function init() {
       try {
         const liff = (await import("@line/liff")).default;
-        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_APP_ID! });
+        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_SUBSCRIBE_ID! });
         if (!liff.isLoggedIn()) { liff.login(); return; }
         const profile = await liff.getProfile();
         setLineUserId(profile.userId);

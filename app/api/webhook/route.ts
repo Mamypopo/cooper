@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyLineSignature, replyText, replyFlex, pushText } from "@/lib/line";
+import { verifyLineSignature, replyText, replyFlex, pushText, lineClient } from "@/lib/line";
 import type { LineWebhookBody, LineMessageEvent, LineTextMessage } from "@/lib/line";
+import { webhook } from "@line/bot-sdk";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { detectIntent, parseRecord, parseTransferCommand, parseBudgetSetCommand, parseCancelTxCommand, parseCloseDebtCommand } from "@/services/ai/parser";
@@ -37,16 +38,50 @@ export async function POST(req: NextRequest) {
 
   const body: LineWebhookBody = JSON.parse(rawBody);
 
-  const events = (body.events ?? []).filter(
-    (e): e is LineMessageEvent =>
-      e.type === "message" && e.message.type === "text"
-  );
-
-  for (const event of events) {
-    await processEvent(event).catch(console.error);
+  for (const event of body.events ?? []) {
+    if (event.type === "follow") {
+      await processFollow(event as webhook.FollowEvent).catch(console.error);
+    } else if (event.type === "message" && (event as LineMessageEvent).message.type === "text") {
+      await processEvent(event as LineMessageEvent).catch(console.error);
+    }
   }
 
   return NextResponse.json({ ok: true });
+}
+
+const SUBSCRIBE_URL = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_SUBSCRIBE_ID}`;
+
+async function processFollow(event: webhook.FollowEvent) {
+  const lineUserId = event.source?.userId;
+  if (!lineUserId) return;
+
+  const isAdmin = lineUserId === process.env.ADMIN_LINE_USER_ID;
+  const profile = await lineClient.getProfile(lineUserId).catch(() => null);
+
+  await prisma.user.upsert({
+    where: { lineUserId },
+    update: {
+      ...(profile?.displayName && { displayName: profile.displayName }),
+      ...(profile?.pictureUrl  && { pictureUrl:  profile.pictureUrl  }),
+    },
+    create: {
+      lineUserId,
+      role: isAdmin ? "ADMIN" : "PENDING",
+      displayName: profile?.displayName ?? null,
+      pictureUrl:  profile?.pictureUrl  ?? null,
+      settings: { create: {} },
+      accounts: {
+        create: { name: "กระเป๋าหลัก", type: "WALLET", isDefault: true },
+      },
+    },
+  });
+
+  if (!isAdmin) {
+    await lineClient.replyMessage({
+      replyToken: (event as unknown as { replyToken: string }).replyToken,
+      messages: [{ type: "text", text: `สวัสดีงับ 🐾 ผม Cooper ผู้จัดการการเงินส่วนตัวของคุณ\n\nCooper เป็นระบบสำหรับสมาชิกนะงับ สมัครได้เลยที่นี่:\n${SUBSCRIBE_URL}` }],
+    }).catch(() => null);
+  }
 }
 
 const HELP_MESSAGE = `🐾 Cooper ช่วยได้แบบนี้งับ
@@ -87,12 +122,19 @@ async function processEvent(event: LineMessageEvent) {
 
   const isAdmin = lineUserId === process.env.ADMIN_LINE_USER_ID;
 
+  const profile = await lineClient.getProfile(lineUserId).catch(() => null);
+
   await prisma.user.upsert({
     where: { lineUserId },
-    update: {},
+    update: {
+      ...(profile?.displayName && { displayName: profile.displayName }),
+      ...(profile?.pictureUrl  && { pictureUrl:  profile.pictureUrl  }),
+    },
     create: {
       lineUserId,
       role: isAdmin ? "ADMIN" : "PENDING",
+      displayName: profile?.displayName ?? null,
+      pictureUrl:  profile?.pictureUrl  ?? null,
       settings: { create: {} },
       accounts: {
         create: { name: "กระเป๋าหลัก", type: "WALLET", isDefault: true },
@@ -177,12 +219,11 @@ async function processEvent(event: LineMessageEvent) {
   if (!isAdmin) {
     const access = await checkAccess(user.id);
     if (access === "PENDING") {
-      const subUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_APP_ID?.split("-")[0]}-subscribe`;
-      await replyText(replyToken, `สวัสดีงับ 🐾 Cooper เป็นระบบสำหรับสมาชิกเท่านั้นนะงับ\n\nสมัครสมาชิกได้ที่นี่เลยงับ:\n${process.env.NEXT_PUBLIC_APP_URL}/liff/subscribe`);
+      await replyText(replyToken, `สวัสดีงับ 🐾 Cooper เป็นระบบสำหรับสมาชิกเท่านั้นนะงับ\n\nสมัครสมาชิกได้ที่นี่เลยงับ:\n${SUBSCRIBE_URL}`);
       return;
     }
     if (access === "EXPIRED") {
-      await replyText(replyToken, `สิทธิ์สมาชิกของคุณหมดอายุแล้วงับ 🐾\nต่ออายุได้ที่:\n${process.env.NEXT_PUBLIC_APP_URL}/liff/subscribe`);
+      await replyText(replyToken, `สิทธิ์สมาชิกของคุณหมดอายุแล้วงับ 🐾\nต่ออายุได้ที่:\n${SUBSCRIBE_URL}`);
       return;
     }
   }
